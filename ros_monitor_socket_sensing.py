@@ -9,7 +9,7 @@ pose_x, pose_y, pose_yaw, speed_linear, speed_angular = 0.0, 0.0, 0.0, 0.0, 0.0
 
 # 현재 스크립트 기준 상대 경로에 설정 파일이 있다고 가정
 sys.path.append(os.path.dirname(__file__))
-from robot_config import ROBOT_ID
+from robot_config.robot_config_id import ROBOT_ID
 
 import json
 import socketio  # pip install "python-socketio[client]"

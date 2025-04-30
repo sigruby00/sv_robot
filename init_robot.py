@@ -9,8 +9,8 @@ USE_PURE_PURSUIT = True  # Set to False to use TEB instead
 
 # 현재 스크립트 기준 상대 경로에 설정 파일이 있다고 가정
 sys.path.append(os.path.dirname(__file__))
-from robot_config_id import ROBOT_ID
-from robot_config_loc import INITIAL_POSES
+from robot_config.robot_config_id import ROBOT_ID
+from robot_config.robot_config_loc import INITIAL_POSES
 
 
 # from robot_config import ROBOT_ID
@@ -51,7 +51,7 @@ def main():
     # params_file = "nav2_controller_pure_pursuit.yaml" if USE_PURE_PURSUIT else "nav2_controller_teb.yaml"
     # params_file = "~/ros2_ws/src/navigation/config/nav2_params.yaml"
     params_file = "~/ros2_ws/src/navigation/config/nav2_controller_teb.yaml"
-    launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=home_02 tab:=true params_file:={params_file}"
+    launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=lab_test tab:=true params_file:={params_file}"
     # launch_cmd = "source /home/ubuntu/ros2_ws/.zshrc && ros2 launch nav2_bringup bringup_launch.py map:=~/ros2_ws/src/slam/maps/home_02 params_file:=nav2_controller_teb.yaml"
     nav_process = run_command(f"zsh -c '{launch_cmd}'", wait=False)
 
