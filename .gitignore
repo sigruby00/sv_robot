@@ -1,3 +1,5 @@
 core
 .DS_Store
 __pycache__
+
+robot_config/robot_config_id.py
