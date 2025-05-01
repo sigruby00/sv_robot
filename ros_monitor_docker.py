@@ -164,6 +164,8 @@ class CameraSender(Node):
         # self.create_timer(0.1, self.send_image)
         # 60Hz
         self.create_timer(1.0 / 30.0, self.send_image)
+        # 120Hz
+        # self.create_timer(1.0 / 60.0, self.send_image)
 
     def camera_callback(self, msg):
         try:

@@ -4,6 +4,7 @@ import socket  # Importing socket module again
 from datetime import datetime
 import random
 import time
+import statistics
 
 pose_x, pose_y, pose_yaw, speed_linear, speed_angular = 0.0, 0.0, 0.0, 0.0, 0.0
 
@@ -21,6 +22,7 @@ robot_id = ROBOT_ID
 INTERFACE = "wlan0"
 sio = socketio.Client()
 
+delay_samples = []
 scan_in_progress= False
 
 @sio.event
@@ -53,18 +55,42 @@ def command(data):
         if handover:
             handover_id = int(handover, 0)
             target_bssid = AP_INFO[handover_id]['bssid'].lower()
-            print(f"Attempting handover to AP {handover_id}")
-            print(f"Attempting handover to BSSID: {target_bssid}")
             while True:
                 if scan_in_progress:
                     pass
                 else:
+                    print(f"Attempting handover to AP {handover_id}")
+                    print(f"Attempting handover to BSSID: {target_bssid}")
                     scan_in_progress = True
-                    print(target_bssid)
-                    print("eeeeeeeeeeeee")
                     handover_ap(target_bssid)
                     scan_in_progress = False
                     break
+
+# Measure RTT and Jitter
+@sio.event
+def ping_request(data):
+    sio.emit('pong_reply')
+# @sio.event
+# def pong_reply(data):
+#     recv_time = time.time()
+#     send_time = data.get('send_time')
+#     if send_time:
+#         rtt = recv_time - send_time
+#         delay = rtt / 2
+#         delay_samples.append(delay)
+
+#         if len(delay_samples) > 1:
+#             jitter = statistics.stdev(delay_samples[-10:])  # 최근 10개만
+#         else:
+#             jitter = 0.0
+
+#         print(f"RTT: {rtt*1000:.2f} ms | Delay ≈ {delay*1000:.2f} ms | Jitter: {jitter*1000:.2f} ms")
+
+# def ping_loop():
+#     while True:
+#         send_time = time.time()
+#         sio.emit('ping_request', {'send_time': send_time})
+#         time.sleep(1)
 
 def sensing_loop():
     gateway_list = list(AP_INFO.keys())
@@ -78,7 +104,6 @@ def sensing_loop():
                 cur_bssid = get_current_bssid()
                 cur_ap_id = get_ap_id_from_bssid(cur_bssid)
                 rssi_map = get_rssi_map_for_hslsv()
-                print(rssi_map)
                 time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 sensing_data = {
@@ -108,7 +133,8 @@ def sensing_loop():
 
                 sio.emit('robot_ss_data', sensing_data)
                 print(f"Sent sensing data from robot {robot_id}")
-                time.sleep(3)
+                print(f"Sensing data: {sensing_data}")
+                # time.sleep(1)
             finally:
                 scan_in_progress = False
         else:
@@ -255,6 +281,7 @@ def main():
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=sensing_loop, daemon=True).start()
     threading.Thread(target=safe_prepare_scan_poll, daemon=True).start()
+    # threading.Thread(target=ping_loop, daemon=True).start()
     # threading.Thread(target=wireless_loop, daemon=True).start()
 
 
