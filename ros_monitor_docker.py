@@ -75,7 +75,7 @@ class PoseSender(Node):
         self.pos = {'x': 0.0, 'y': 0.0, 'yaw': 0.0}
 
     def battery_callback(self, msg):
-        self.battery = msg.data / 100.0
+        self.battery = msg.data / 105.0
 
     def imu_callback(self, msg):
         # 최신 IMU 데이터 저장 (선형 가속도와 각속도만)

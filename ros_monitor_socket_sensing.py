@@ -10,6 +10,7 @@ pose_x, pose_y, pose_yaw, speed_linear, speed_angular = 0.0, 0.0, 0.0, 0.0, 0.0
 # 현재 스크립트 기준 상대 경로에 설정 파일이 있다고 가정
 sys.path.append(os.path.dirname(__file__))
 from robot_config.robot_config_id import ROBOT_ID
+from robot_config.ap_config import AP_INFO
 
 import json
 import socketio  # pip install "python-socketio[client]"
@@ -17,7 +18,10 @@ import subprocess
 
 # Socket.IO 클라이언트 생성
 robot_id = ROBOT_ID
+INTERFACE = "wlan0"
 sio = socketio.Client()
+
+scan_in_progress= False
 
 @sio.event
 def connect():
@@ -29,6 +33,8 @@ def disconnect():
 
 @sio.event
 def command(data):
+    print(data)
+    global scan_in_progress
     if data.get('robot_id') == str(robot_id):
         print(f"[{robot_id}] Received command: {data}")
         action = data.get('action')
@@ -43,42 +49,164 @@ def command(data):
             except Exception as e:
                 print(f"Failed to forward command to Docker: {e}")
 
-def sensing_loop():
-    gateways = [1, 2, 3, 4]
-    while True:
-        connected_gateway = random.choice(gateways)  # Dummy: randomly pick one as connected
-        time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sensing_data = {
-            "timestamp": time_now,
-            "data": {
-                "ca_id": robot_id,
-                "location": {
-                    "x": pose_x,
-                    "y": pose_y,
-                    "t": pose_yaw
-                },
-                "imu": {
-                    "linear_speed": speed_linear,
-                    "angular_speed": speed_angular,
-                },
-                "connections": [
-                    {
-                        "gateway_id": gw_id,
-                        "mac_address": f"00:00:00:00:00:{gw_id:02}",
-                        "connected": str(gw_id == connected_gateway).lower(),
-                        "rssi": f"{-random.randint(40, 90)}",
-                        "throughput": round(random.uniform(0.0, 100.0), 2) if gw_id == connected_gateway else 0.0,
-                        "delay": round(random.uniform(0.0, 100.0), 2) if gw_id == connected_gateway else 0.0,
-                        "jitter": round(random.uniform(0.0, 100.0), 2) if gw_id == connected_gateway else 0.0
-                    }
-                    for gw_id in gateways
-                ]
-            }
-        }
+        handover = data.get('handover')
+        if handover:
+            handover_id = int(handover, 0)
+            target_bssid = AP_INFO[handover_id]['bssid'].lower()
+            print(f"Attempting handover to AP {handover_id}")
+            print(f"Attempting handover to BSSID: {target_bssid}")
+            while True:
+                if scan_in_progress:
+                    pass
+                else:
+                    scan_in_progress = True
+                    print(target_bssid)
+                    print("eeeeeeeeeeeee")
+                    handover_ap(target_bssid)
+                    scan_in_progress = False
+                    break
 
-        sio.emit('robot_ss_data', sensing_data)
-        print(f"Sent sensing data from robot {robot_id}")
-        time.sleep(3)
+def sensing_loop():
+    gateway_list = list(AP_INFO.keys())
+    while True:
+        # connected_gateway = random.choice(gateways)  # Dummy: randomly pick one as connected
+        global scan_in_progress
+
+        if not scan_in_progress:
+            scan_in_progress = True
+            try:
+                cur_bssid = get_current_bssid()
+                cur_ap_id = get_ap_id_from_bssid(cur_bssid)
+                rssi_map = get_rssi_map_for_hslsv()
+                print(rssi_map)
+                time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                sensing_data = {
+                    "timestamp": time_now,
+                    "data": {
+                        "ca_id": robot_id,
+                        "location": {
+                            "x": pose_x,
+                            "y": pose_y,
+                            "t": pose_yaw
+                        },
+                        "imu": {
+                            "linear_speed": speed_linear,
+                            "angular_speed": speed_angular,
+                        },
+                        "connections": [
+                            {
+                                "gateway_id": gw_id,
+                                "mac_address": AP_INFO[gw_id]['bssid'],
+                                "connected": str(gw_id == cur_ap_id).lower(),
+                                "rssi": rssi_map.get(AP_INFO[gw_id]['bssid'].lower(), -100),
+                            }
+                            for gw_id in gateway_list
+                        ]
+                    }
+                }
+
+                sio.emit('robot_ss_data', sensing_data)
+                print(f"Sent sensing data from robot {robot_id}")
+                time.sleep(3)
+            finally:
+                scan_in_progress = False
+        else:
+            pass
+
+def get_current_bssid():
+    try:
+        result = subprocess.check_output(["sudo", "iw", "dev", INTERFACE, "link"], text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting current BSSID: {e}")
+        return None
+
+    for line in result.splitlines():
+        line = line.strip()
+        if line.startswith("Connected to"):
+            return line.split()[2]
+    return None
+
+def get_ap_id_from_bssid(bssid):
+    try:
+        for ap in AP_INFO.values():
+            if ap['bssid'].lower() == bssid.lower():
+                return ap['ap_id']
+    except:
+        print(f"Error getting AP ID for BSSID {bssid}")
+        return None
+    return None  # 매칭되는 BSSID가 없을 때
+
+def safe_prepare_scan_poll():
+    global scan_in_progress
+    if scan_in_progress:
+        print("Skip scan: already in progress")
+        return
+    scan_in_progress = True
+    try:
+        subprocess.run(["sudo", "wpa_cli", "scan"], check=True)
+        time.sleep(2.0)
+    except subprocess.CalledProcessError as e:
+        print(f"Scan error: {e}")
+    finally:
+        scan_in_progress = False
+
+def get_rssi_map_for_hslsv():
+    """
+    Returns a dict mapping BSSID to RSSI for APs with SSID 'HSLSV'
+    """
+    try:
+        scan_result = subprocess.check_output(["sudo", "iw", "dev", INTERFACE, "scan"], text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to get RSSI scan: {e}")
+        return {}
+
+    rssi_map = {}
+    current_bssid = None
+    current_ssid = None
+    current_rssi = None
+
+    for line in scan_result.splitlines():
+        line = line.strip()
+        if line.startswith("BSS "):
+            # 이전 BSS 처리
+            if current_bssid and current_ssid == "HSLSV" and current_rssi is not None:
+                rssi_map[current_bssid] = current_rssi
+            # 새 BSS 시작
+            raw_bssid = line.split()[1]
+            current_bssid = raw_bssid.split('(')[0].lower()  # ← 여기 수정
+            current_ssid = None
+            current_rssi = None
+        elif line.startswith("SSID:"):
+            current_ssid = line.split("SSID:")[1].strip()
+        elif line.startswith("signal:"):
+            try:
+                current_rssi = float(line.split()[1])
+            except ValueError:
+                current_rssi = None
+
+    # 마지막 BSS 처리
+    if current_bssid and current_ssid == "HSLSV" and current_rssi is not None:
+        rssi_map[current_bssid] = current_rssi
+
+    return rssi_map
+
+def handover_ap(target_bssid):
+    try:
+        subprocess.run(["sudo", "wpa_cli", "roam", target_bssid], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error during handover: {e}")
+
+
+def wireless_loop():
+    # Dummy function to simulate wireless data processing
+    while True:
+        time.sleep(1)
+        bssid = get_current_bssid()
+        print(bssid)
+        print(get_ap_id_from_bssid(bssid))
+        print(f"Wireless loop running for robot {robot_id}")
+
 
 # SERVER_URL = 'https://0cd8b22324dc.ngrok.app'
 # SERVER_URL_RTP = 'https://ccf9aec2f845.ngrok.app:5002'
@@ -126,6 +254,8 @@ def main():
     # 카메라 루프를 별도의 스레드에서 실행
     threading.Thread(target=camera_loop, daemon=True).start()
     threading.Thread(target=sensing_loop, daemon=True).start()
+    threading.Thread(target=safe_prepare_scan_poll, daemon=True).start()
+    # threading.Thread(target=wireless_loop, daemon=True).start()
 
 
     # 수신 및 전송 루프
