@@ -3,6 +3,7 @@ import math
 import rclpy
 import numpy as np
 import random
+import time
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
@@ -15,13 +16,16 @@ class LidarObstacleAvoidance(Node):
         super().__init__('lidar_obstacle_avoidance')
 
         self.timeout = 10 # seconds
-        self.threshold = 0.35  # meters
+        self.threshold = 0.3  # meters
         self.speed = 0.2  # m/s
         self.lidar_type = ""
         self.random_angular_factor = random.uniform(0.4, 1.6)
 
         self.start_time = self.get_clock().now()
         self.should_shutdown = False
+
+        self.last_act = 0
+        self.timestamp = 0
 
         self.cmd_pub = self.create_publisher(Twist, '/controller/cmd_vel', 50)
         self.lidar_sub = self.create_subscription(
@@ -44,7 +48,7 @@ class LidarObstacleAvoidance(Node):
             self.should_shutdown = True
             return
 
-        if self.latest_scan is None:
+        if self.latest_scan is None or self.timestamp > time.time():
             return
 
         scan = self.latest_scan
@@ -52,25 +56,11 @@ class LidarObstacleAvoidance(Node):
         center_index = len(scan.ranges) // 2
         front_index = (center_index + len(scan.ranges) // 2) % len(scan.ranges)
         front_range = scan.ranges[front_index]
+
         if not math.isfinite(front_range) or front_range < 0.05 or front_range > 5.0:
             self.get_logger().warn(f"Invalid front range: {front_range}")
             twist.linear.x = 0.0
             twist.angular.z = self.speed * random.choice([-1, 1])
-            self.cmd_pub.publish(twist)
-            return
-
-        safe_forward_distance = 0.4  # meters
-        self.get_logger().info(f'Front range: {front_range:.2f}')
-        if front_range > safe_forward_distance:
-            twist.linear.x = self.speed
-            twist.angular.z = 0.0
-            self.get_logger().info("Clear ahead, moving forward")
-            self.cmd_pub.publish(twist)
-            return
-        else:
-            twist.linear.x = 0.0
-            twist.angular.z = self.speed * random.choice([-1, 1])
-            self.get_logger().warn("Too close to obstacle in front, turning")
             self.cmd_pub.publish(twist)
             return
 
@@ -84,32 +74,54 @@ class LidarObstacleAvoidance(Node):
             left_ranges = scan.ranges[::-1][min_index:max_index][::-1]
             right_ranges = scan.ranges[min_index:max_index][::-1]
 
-        left_valid = [r for r in left_ranges if 0.01 < r < 10.0]
-        right_valid = [r for r in right_ranges if 0.01 < r < 10.0]
+        left_array = np.array(left_ranges)
+        right_array = np.array(right_ranges)
+        left_nonzero = left_array.nonzero()
+        right_nonzero = right_array.nonzero()
+        left_nonan = np.isfinite(left_array[left_nonzero])
+        right_nonan = np.isfinite(right_array[right_nonzero])
+        min_dist_left_ = left_array[left_nonzero][left_nonan]
+        min_dist_right_ = right_array[right_nonzero][right_nonan]
 
-        min_left = min(left_valid, default=10.0)
-        min_right = min(right_valid, default=10.0)
+        if len(min_dist_left_) > 1 and len(min_dist_right_) > 1:
+            min_left = min_dist_left_.min()
+            min_right = min_dist_right_.min()
 
-        if min(min_left, min_right) < 0.05:
-            self.get_logger().warn('Too close to obstacle — backing up and turning')
-            twist.linear.x = -self.speed / 2
-            twist.angular.z = random.choice([-1, 1]) * self.speed * 4.0 * random.uniform(0.8, 1.2)
-            self.cmd_pub.publish(twist)
-            return
+            if min_left <= self.threshold and min_right > self.threshold:
+                twist.linear.x = self.speed / 6
+                max_angle = math.radians(90)
+                w = self.speed * 6.0
+                twist.angular.z = -w
+                if self.last_act != 0 and self.last_act != 1:
+                    twist.angular.z = w
+                self.last_act = 1
+                self.cmd_pub.publish(twist)
+                self.timestamp = time.time() + (max_angle / w / 2)
+                return
 
-        if min_left <= self.threshold and min_right > self.threshold:
-            twist.linear.x = self.speed / 6
-            twist.angular.z = -self.speed * 6.0 * self.random_angular_factor
-        elif min_left <= self.threshold and min_right <= self.threshold:
-            twist.linear.x = random.uniform(0.05, self.speed / 5)
-            twist.angular.z = random.choice([-1, 1]) * self.speed * 6.0 * random.uniform(0.8, 1.5)
-        elif min_left > self.threshold and min_right <= self.threshold:
-            twist.linear.x = self.speed / 6
-            twist.angular.z = self.speed * 6.0 * self.random_angular_factor
-        else:
-            twist.linear.x = self.speed
-            twist.angular.z = 0.0
+            elif min_left <= self.threshold and min_right <= self.threshold:
+                twist.linear.x = self.speed / 6
+                w = self.speed * 6.0
+                twist.angular.z = w
+                self.last_act = 3
+                self.cmd_pub.publish(twist)
+                self.timestamp = time.time() + (math.radians(180) / w / 2)
+                return
 
+            elif min_left > self.threshold and min_right <= self.threshold:
+                twist.linear.x = self.speed / 6
+                max_angle = math.radians(90)
+                w = self.speed * 6.0
+                twist.angular.z = w
+                if self.last_act != 0 and self.last_act != 2:
+                    twist.angular.z = -w
+                self.last_act = 2
+                self.cmd_pub.publish(twist)
+                self.timestamp = time.time() + (max_angle / w / 2)
+                return
+
+        twist.linear.x = self.speed
+        twist.angular.z = 0.0
         self.cmd_pub.publish(twist)
 
 
