@@ -70,6 +70,7 @@ def command(data):
 @sio.event
 def ping_request(data):
     sio.emit('pong_reply')
+
 # @sio.event
 # def pong_reply(data):
 #     recv_time = time.time()
@@ -91,6 +92,7 @@ def ping_request(data):
 #         send_time = time.time()
 #         sio.emit('ping_request', {'send_time': send_time})
 #         time.sleep(1)
+
 
 def sensing_loop():
     gateway_list = list(AP_INFO.keys())
@@ -132,8 +134,8 @@ def sensing_loop():
                 }
 
                 sio.emit('robot_ss_data', sensing_data)
-                print(f"Sent sensing data from robot {robot_id}")
-                print(f"Sensing data: {sensing_data}")
+                # print(f"Sent sensing data from robot {robot_id}")
+                # print(f"Sensing data: {sensing_data}")
                 # time.sleep(1)
             finally:
                 scan_in_progress = False
@@ -273,7 +275,7 @@ def main():
                         'robot_id': robot_id,
                         'image': image
                     })
-                    print(f"Send image to server from robot {robot_id}")
+                    # print(f"Send image to server from robot {robot_id}")
             except Exception as e:
                 print(f"Error decoding camera data: {e}")
 
@@ -302,19 +304,19 @@ def main():
             linear_acc = imu.get('linear_acceleration', {})
             angular_vel = imu.get('angular_velocity', {})
 
-            print(f"robot_id: {robot_id}")
-            print(f"Pos X: {x:.3f}")
-            print(f"Pos Y: {y:.3f}")
-            print(f"Pos Yaw: {yaw:.3f}")
-            print(f"Battery Level: {battery:.2f}%" if battery is not None else "Battery Level: N/A")
-            if linear_speed is not None:
-                print(f"IMU Speed - Linear: {linear_speed:.3f} m/s")
-            if angular_speed is not None:
-                print(f"IMU Speed - Angular: {angular_speed:.3f} rad/s")
-            if linear_acc:
-                print(f"Linear Acc: x={linear_acc.get('x', 0.0):.3f}, y={linear_acc.get('y', 0.0):.3f}, z={linear_acc.get('z', 0.0):.3f}")
-            if angular_vel:
-                print(f"Angular Vel: x={angular_vel.get('x', 0.0):.3f}, y={angular_vel.get('y', 0.0):.3f}, z={angular_vel.get('z', 0.0):.3f}")
+            # print(f"robot_id: {robot_id}")
+            # print(f"Pos X: {x:.3f}")
+            # print(f"Pos Y: {y:.3f}")
+            # print(f"Pos Yaw: {yaw:.3f}")
+            # print(f"Battery Level: {battery:.2f}%" if battery is not None else "Battery Level: N/A")
+            # if linear_speed is not None:
+            #     print(f"IMU Speed - Linear: {linear_speed:.3f} m/s")
+            # if angular_speed is not None:
+            #     print(f"IMU Speed - Angular: {angular_speed:.3f} rad/s")
+            # if linear_acc:
+            #     print(f"Linear Acc: x={linear_acc.get('x', 0.0):.3f}, y={linear_acc.get('y', 0.0):.3f}, z={linear_acc.get('z', 0.0):.3f}")
+            # if angular_vel:
+            #     print(f"Angular Vel: x={angular_vel.get('x', 0.0):.3f}, y={angular_vel.get('y', 0.0):.3f}, z={angular_vel.get('z', 0.0):.3f}")
 
             global pose_x, pose_y, pose_yaw, speed_linear, speed_angular
             pose_x = x if x is not None else 0.0
