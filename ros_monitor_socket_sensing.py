@@ -355,10 +355,12 @@ def main():
             try:
                 decoded = json.loads(data.decode())
                 image = decoded.get('image')
+                dummy = decoded.get('dummy')
                 if image:
                     sio.emit('robot_image', {
                         'robot_id': robot_id,
-                        'image': image
+                        'image': image,
+                        'dummy': dummy,
                     })
                     # print(f"Send image to server from robot {robot_id}")
             except Exception as e:
