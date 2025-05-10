@@ -182,13 +182,19 @@ class CameraSender(Node):
             self.get_logger().error(f"Camera callback error: {e}")
 
     def send_image(self):
+        TARGET_SIZE = 30720  # 원하는 base64 문자열 길이(10KB, 필요시 조정)
         if self.camera_frame:
+            b64_image = self.camera_frame
+            if len(b64_image) < TARGET_SIZE:
+                b64_image += '0' * (TARGET_SIZE - len(b64_image))
+            else:
+                b64_image = b64_image[:TARGET_SIZE]
             data = {
-                'image': self.camera_frame
+                'image': b64_image
             }
             try:
                 self.sock.sendto(json.dumps(data).encode(), (self.host_ip, self.port))
-                self.get_logger().info(f"Sent camera frame (base64 size: {len(self.camera_frame)})")
+                self.get_logger().info(f"Sent camera frame (fixed size: {TARGET_SIZE})")
             except Exception as e:
                 self.get_logger().error(f"Failed to send camera frame: {e}")
 
