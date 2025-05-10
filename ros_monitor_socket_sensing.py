@@ -52,11 +52,35 @@ def command(data):
             except Exception as e:
                 print(f"Failed to forward command to Docker: {e}")
 
+        # handover = data.get('handover')
+        # if handover:
+        #     handover_id = int(handover, 0)
+        #     target_bssid = AP_INFO[handover_id]['bssid'].lower()
+        #     print(f"[{robot_id}] Received handover request to BSSID: {target_bssid}")
+
+        #     # Try to acquire lock for handover
+        #     acquired = scan_lock.acquire(timeout=5)
+        #     if not acquired:
+        #         print("Timeout: Unable to acquire scan lock for handover")
+        #         return
+
+        #     try:
+        #         print(f"Performing handover to AP {handover_id}")
+        #         handover_ap(target_bssid)
+        #     finally:
+        #         scan_lock.release()
+
+
         handover = data.get('handover')
         if handover:
             handover_id = int(handover, 0)
             target_bssid = AP_INFO[handover_id]['bssid'].lower()
             print(f"[{robot_id}] Received handover request to BSSID: {target_bssid}")
+
+            current_bssid = get_current_bssid()
+            if current_bssid == target_bssid:
+                print(f"[{robot_id}] Already connected to BSSID {current_bssid}. Skipping handover.")
+                return
 
             # Try to acquire lock for handover
             acquired = scan_lock.acquire(timeout=5)
