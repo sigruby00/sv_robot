@@ -172,7 +172,10 @@ class CameraSender(Node):
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             cv_image = cv2.resize(cv_image, (320, 240))  # 예: 320x240으로 축소
 
-            _, jpeg = cv2.imencode('.jpg', cv_image)
+            # Set JPEG encoding quality to 95 to reduce compression variability
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
+            _, jpeg = cv2.imencode('.jpg', cv_image, encode_param)
+            # _, jpeg = cv2.imencode('.jpg', cv_image)  # original line removed/commented
             b64_image = base64.b64encode(jpeg).decode('utf-8')
             self.camera_frame = b64_image
         except Exception as e:
