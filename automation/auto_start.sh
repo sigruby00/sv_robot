@@ -6,6 +6,10 @@ echo "[INFO] Pulling latest code from GitHub..."
 git pull origin main
 sleep 5
 
+# 맵 파일 ROS2 워크스페이스로 동기화
+echo "[INFO] Syncing maps to ROS2 workspace..."
+docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "mkdir -p /home/ubuntu/ros2_ws/src/slam/maps && cp -r /home/ubuntu/shared/sv_robot/map_info/* /home/ubuntu/ros2_ws/src/slam/maps/"
+
 docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "~/.stop_ros.sh"
 
 # 2. navigation 및 AMCL 등 메인 ROS2 스택 실행 (init_robot.py는 navigation만 실행)
