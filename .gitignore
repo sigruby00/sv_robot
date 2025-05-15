@@ -1,0 +1,7 @@
+core
+.DS_Store
+__pycache__
+
+ssh/
+
+robot_config/robot_config_id.py

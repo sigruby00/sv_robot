@@ -1,0 +1,40 @@
+#!/bin/bash
+
+SERVICE_NAME="svrobot"
+SCRIPT_PATH="/home/pi/docker/tmp/sv_robot/automation/auto_start.sh"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+echo "[INFO] Creating systemd service for SV Robot..."
+
+# 1. 서비스 파일 생성
+sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+[Unit]
+Description=Start SV Robot Automation Script
+After=network-online.target NetworkManager.service docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+ExecStartPre=/bin/sleep 20
+ExecStart=/home/pi/docker/tmp/sv_robot/automation/auto_start.sh
+WorkingDirectory=/home/pi/docker/tmp/sv_robot/automation
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+User=pi
+Environment=HOME=/home/pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 2. 실행 권한 부여
+chmod +x "$SCRIPT_PATH"
+
+# 3. systemd 등록 및 활성화
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable "$SERVICE_NAME"
+sudo systemctl start "$SERVICE_NAME"
+
+echo "[INFO] Service ${SERVICE_NAME} installed and started."
