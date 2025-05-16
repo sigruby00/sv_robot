@@ -129,8 +129,9 @@ class PoseSender(Node):
 
     def lookup_transform(self):
         try:
-            current_time = self.get_clock().now() - rclpy.duration.Duration(seconds=0.1)
-            transform = self.tf_buffer.lookup_transform('map', 'base_link', current_time)
+            # current_time = self.get_clock().now() - rclpy.duration.Duration(seconds=0.1)
+            # transform = self.tf_buffer.lookup_transform('map', 'base_link', current_time)
+            transform = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
 
             if not self.imu_data or \
                'linear_speed' not in self.imu_data or \
