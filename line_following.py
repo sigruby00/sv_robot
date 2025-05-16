@@ -293,88 +293,104 @@ class LineFollowingNode(Node):
             return response
 
     def lidar_callback(self, lidar_data):
-        # 数据大小 = 扫描角度/每扫描一次增加的角度(data size= scanning angle/ the increased angle per scan)
-        if self.lidar_type != 'G4':
-            min_index = int(math.radians(MAX_SCAN_ANGLE / 2.0) / lidar_data.angle_increment)
-            max_index = int(math.radians(MAX_SCAN_ANGLE / 2.0) / lidar_data.angle_increment)
-            left_ranges = lidar_data.ranges[:max_index]  # 左半边数据(left data)
-            right_ranges = lidar_data.ranges[::-1][:max_index]  # 右半边数据(right data)
-        elif self.lidar_type == 'G4':
-            min_index = int(math.radians((360 - MAX_SCAN_ANGLE) / 2.0) / lidar_data.angle_increment)
-            max_index = int(math.radians(180) / lidar_data.angle_increment)
-            left_ranges = lidar_data.ranges[min_index:max_index][::-1]  # 左半边数据 (the left data)
-            right_ranges = lidar_data.ranges[::-1][min_index:max_index][::-1]  # 右半边数据 (the right data)
+        try:
+            # 数据大小 = 扫描角度/每扫描一次增加的角度(data size= scanning angle/ the increased angle per scan)
+            if self.lidar_type != 'G4':
+                min_index = int(math.radians(MAX_SCAN_ANGLE / 2.0) / lidar_data.angle_increment)
+                max_index = int(math.radians(MAX_SCAN_ANGLE / 2.0) / lidar_data.angle_increment)
+                left_ranges = lidar_data.ranges[:max_index]  # 左半边数据(left data)
+                right_ranges = lidar_data.ranges[::-1][:max_index]  # 右半边数据(right data)
+            elif self.lidar_type == 'G4':
+                min_index = int(math.radians((360 - MAX_SCAN_ANGLE) / 2.0) / lidar_data.angle_increment)
+                max_index = int(math.radians(180) / lidar_data.angle_increment)
+                left_ranges = lidar_data.ranges[min_index:max_index][::-1]  # 左半边数据 (the left data)
+                right_ranges = lidar_data.ranges[::-1][min_index:max_index][::-1]  # 右半边数据 (the right data)
 
-        # 根据设定取数据(Get data according to settings)
-        angle = self.scan_angle / 2
-        angle_index = int(angle / lidar_data.angle_increment + 0.50)
-        left_range, right_range = np.array(left_ranges[:angle_index]), np.array(right_ranges[:angle_index])
+            # 根据设定取数据(Get data according to settings)
+            angle = self.scan_angle / 2
+            angle_index = int(angle / lidar_data.angle_increment + 0.50)
+            left_range, right_range = np.array(left_ranges[:angle_index]), np.array(right_ranges[:angle_index])
 
-        left_nonzero = left_range.nonzero()
-        right_nonzero = right_range.nonzero()
-        left_nonan = np.isfinite(left_range[left_nonzero])
-        right_nonan = np.isfinite(right_range[right_nonzero])
-        # 取左右最近的距离(Take the nearest distance left and right)
-        min_dist_left_ = left_range[left_nonzero][left_nonan]
-        min_dist_right_ = right_range[right_nonzero][right_nonan]
-        if len(min_dist_left_) > 1 and len(min_dist_right_) > 1:
-            min_dist_left = min_dist_left_.min()
-            min_dist_right = min_dist_right_.min()
-            if min_dist_left < self.stop_threshold or min_dist_right < self.stop_threshold:
-                self.stop = True
-            else:
-                self.count += 1
-                if self.count > 5:
-                    self.count = 0
-                    self.stop = False
+            left_nonzero = left_range.nonzero()
+            right_nonzero = right_range.nonzero()
+            left_nonan = np.isfinite(left_range[left_nonzero])
+            right_nonan = np.isfinite(right_range[right_nonzero])
+            # 取左右最近的距离(Take the nearest distance left and right)
+            min_dist_left_ = left_range[left_nonzero][left_nonan]
+            min_dist_right_ = right_range[right_nonzero][right_nonan]
+            with self.lock:
+                if len(min_dist_left_) > 1 and len(min_dist_right_) > 1:
+                    min_dist_left = min_dist_left_.min()
+                    min_dist_right = min_dist_right_.min()
+                    if min_dist_left < self.stop_threshold or min_dist_right < self.stop_threshold:
+                        if not self.stop:
+                            self.get_logger().warn(f"[LIDAR] STOP! min_left={min_dist_left:.2f}, min_right={min_dist_right:.2f}")
+                        self.stop = True
+                    else:
+                        self.count += 1
+                        if self.count > 5:
+                            if self.stop:
+                                self.get_logger().info("[LIDAR] Resume, no obstacle.")
+                            self.count = 0
+                            self.stop = False
+                self.get_logger().info(f"[LIDAR] self.stop={self.stop}")
+        except Exception as e:
+            self.get_logger().error(f"[LIDAR] Exception: {str(e)}")
 
     def image_callback(self, ros_image):
-        cv_image = self.bridge.imgmsg_to_cv2(ros_image, "rgb8")
-        rgb_image = np.array(cv_image, dtype=np.uint8)
-        self.image_height, self.image_width = rgb_image.shape[:2]
-        result_image = np.copy(rgb_image)  # 显示结果用的画面 (the image used to display the result)
-        with self.lock:
-            # 颜色拾取器和识别巡线互斥, 如果拾取器存在就开始拾取(color picker and line recognition are exclusive. If there is color picker, start picking)
-            if self.color_picker is not None:  # 拾取器存在(color picker exists)
-                try:
-                    target_color, result_image = self.color_picker(rgb_image, result_image)
-                    target_color = ([0, 128, 128], (0, 0, 0))  # LAB, RGB for force to black
-                    if target_color is not None:
-                        self.color_picker = None
-                        self.follower = LineFollower(target_color, self)
-                        self.get_logger().info("target color: {}".format(target_color))
-                except Exception as e:
-                    self.get_logger().error(str(e))
-            else:
-                twist = Twist()
-                twist.linear.x = 0.25
-                if self.follower is not None:
+        try:
+            self.get_logger().info(f"[IMAGE] image_callback called, self.stop={self.stop}")
+            cv_image = self.bridge.imgmsg_to_cv2(ros_image, "rgb8")
+            rgb_image = np.array(cv_image, dtype=np.uint8)
+            self.image_height, self.image_width = rgb_image.shape[:2]
+            result_image = np.copy(rgb_image)
+            with self.lock:
+                if self.color_picker is not None:
                     try:
-                        result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
-                        if deflection_angle is not None and self.is_running and not self.stop:
-                            self.pid.update(deflection_angle)
-                            if self.machine_type == 'MentorPi_Acker':
-                                steering_angle = common.set_range(-self.pid.output, -math.radians(322/2000*180), math.radians(322/2000*180))
-                                if steering_angle != 0:
-                                    R = 0.145/math.tan(steering_angle)
-                                    twist.angular.z = twist.linear.x/R
-                            else:
-                                twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
-                            self.mecanum_pub.publish(twist)
-                        elif self.stop:
-                            self.mecanum_pub.publish(Twist())
-                        else:
-                            self.pid.clear()
+                        target_color, result_image = self.color_picker(rgb_image, result_image)
+                        target_color = ([0, 128, 128], (0, 0, 0))
+                        if target_color is not None:
+                            self.color_picker = None
+                            self.follower = LineFollower(target_color, self)
+                            self.get_logger().info("target color: {}".format(target_color))
                     except Exception as e:
-                        self.get_logger().error(str(e))
-        # if self.debug:
-        #     if self.image_queue.full():
-        #         # 如果队列已满，丢弃最旧的图像(if the queue is full, remove the oldest image)
-        #         self.image_queue.get()
-        #         # 将图像放入队列(put the image into the queue)
-        #     self.image_queue.put(result_image)
-        # else:
-        #     self.result_publisher.publish(self.bridge.cv2_to_imgmsg(result_image, "rgb8"))
+                        self.get_logger().error(f"[IMAGE] ColorPicker Exception: {str(e)}")
+                else:
+                    twist = Twist()
+                    twist.linear.x = 0.25
+                    if self.follower is not None:
+                        try:
+                            result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
+                            if deflection_angle is not None and self.is_running and not self.stop:
+                                self.pid.update(deflection_angle)
+                                if self.machine_type == 'MentorPi_Acker':
+                                    steering_angle = common.set_range(-self.pid.output, -math.radians(322/2000*180), math.radians(322/2000*180))
+                                    if steering_angle != 0:
+                                        R = 0.145/math.tan(steering_angle)
+                                        twist.angular.z = twist.linear.x/R
+                                else:
+                                    twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
+                                self.get_logger().info(f"[IMAGE] Following line, stop={self.stop}, twist=({twist.linear.x},{twist.angular.z})")
+                                self.mecanum_pub.publish(twist)
+                                self.get_logger().info("[IMAGE] Published twist for line following.")
+                            elif self.stop:
+                                self.get_logger().warn("[IMAGE] STOP requested by LIDAR! Publishing Twist() (stop)")
+                                self.mecanum_pub.publish(Twist())
+                                self.get_logger().info("[IMAGE] Published Twist() for STOP.")
+                            else:
+                                self.get_logger().info(f"[IMAGE] PID clear, stop={self.stop}")
+                                self.pid.clear()
+                        except Exception as e:
+                            self.get_logger().error(f"[IMAGE] Follower Exception: {str(e)}")
+                            self.mecanum_pub.publish(Twist())
+                            self.get_logger().warn("[IMAGE] Exception occurred, forced STOP.")
+        except Exception as e:
+            self.get_logger().error(f"[IMAGE] Outer Exception: {str(e)}")
+            try:
+                self.mecanum_pub.publish(Twist())
+                self.get_logger().warn("[IMAGE] Outer Exception, forced STOP.")
+            except Exception as ee:
+                self.get_logger().error(f"[IMAGE] Publish Exception: {str(ee)}")
 
 def main():
     node = LineFollowingNode('line_following')
