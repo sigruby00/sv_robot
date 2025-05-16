@@ -41,6 +41,7 @@ class CommandReceiver(Node):
     def __init__(self):
         super().__init__('command_receiver')
         self.cmd_vel_pub = self.create_publisher(Twist, '/controller/cmd_vel', 10)
+        # self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
         self.cmd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cmd_sock.bind(('0.0.0.0', 9002))
@@ -59,6 +60,7 @@ class CommandReceiver(Node):
                     if command.get('navigation') is not None:
                         data = command.get('navigation')
                         if data.get('action') == True:
+                            print("navigation start")
                             run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: True}'", wait=False)
                         elif data.get('action') == False:
                             run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: False}'", wait=False)
@@ -198,33 +200,53 @@ class CameraSender(Node):
     def camera_callback(self, msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            cv_image = cv2.resize(cv_image, (320, 240))  # 예: 320x240으로 축소
+            # cv_image = cv2.resize(cv_image, (320, 240))  # 예: 320x240으로 축소
+            cv_image = cv2.resize(cv_image, (160, 120))  # 예: 320x240으로 축소
 
             # Set JPEG encoding quality to 95 to reduce compression variability
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 95]
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]
             _, jpeg = cv2.imencode('.jpg', cv_image, encode_param)
             # _, jpeg = cv2.imencode('.jpg', cv_image)  # original line removed/commented
-            b64_image = base64.b64encode(jpeg).decode('utf-8')
-            self.camera_frame = b64_image
+            # with encoding
+            # b64_image = base64.b64encode(jpeg).decode('utf-8')
+            # self.camera_frame = b64_image
+
+            self.camera_frame = jpeg.tobytes()  # JPEG 이미지 바이트로 저장A
         except Exception as e:
             self.get_logger().error(f"Camera callback error: {e}")
 
     def send_image(self):
-        TARGET_SIZE = 30720  # 전체 전송 데이터 목표 크기(30KB)
         if self.camera_frame:
-            b64_image = self.camera_frame
-            dummy_len = max(0, TARGET_SIZE - len(b64_image))
-            data = {
-                'robot_id': str(robot_id),
-                'image': b64_image,
-                # 'dummy': '0' * dummy_len  # 부족한 만큼 dummy 데이터 추가
-            }
+            robot_id_bytes = int(robot_id).to_bytes(2, byteorder='big')  # 0~65535 가능
+            jpeg_bytes = self.camera_frame
+
+            # 고정 크기로 만들기 (optional)
+            TARGET_SIZE = 30720
+            payload = robot_id_bytes + jpeg_bytes
+            if len(payload) < TARGET_SIZE:
+                payload += b'\x00' * (TARGET_SIZE - len(payload))
 
             try:
-                self.sock.sendto(json.dumps(data).encode(), (self.host_ip, self.port))
-                # self.get_logger().info(f"Sent camera frame (image: {len(b64_image)}, dummy: {dummy_len})")
+                self.sock.sendto(payload, (self.host_ip, self.port))
             except Exception as e:
-                self.get_logger().error(f"Failed to send camera frame: {e}")
+                self.get_logger().error(f"Failed to send image frame: {e}")
+
+    # def send_image(self):
+    #     TARGET_SIZE = 30720  # 전체 전송 데이터 목표 크기(30KB)
+    #     if self.camera_frame:
+    #         b64_image = self.camera_frame
+    #         dummy_len = max(0, TARGET_SIZE - len(b64_image))
+    #         data = {
+    #             'robot_id': str(robot_id),
+    #             'image': b64_image,
+    #             # 'dummy': '0' * dummy_len  # 부족한 만큼 dummy 데이터 추가
+    #         }
+
+    #         try:
+    #             self.sock.sendto(json.dumps(data).encode(), (self.host_ip, self.port))
+    #             # self.get_logger().info(f"Sent camera frame (image: {len(b64_image)}, dummy: {dummy_len})")
+    #         except Exception as e:
+    #             self.get_logger().error(f"Failed to send camera frame: {e}")
 
 # ros2 service call /line_following/enter std_srvs/srv/Trigger {}
 # ros2 service call /line_following/force_pick_color std_srvs/srv/Trigger "{}"
