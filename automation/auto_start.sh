@@ -61,6 +61,13 @@ while true; do
 done
 
 # 2. navigation 및 AMCL 등 메인 ROS2 스택 실행 (init_robot.py는 navigation만 실행)
+
+# 기존 line_following 노드가 있으면 종료
+# (docker 컨테이너 MentorPi 내부에서 실행)
+echo "[INFO] Killing any running line_following nodes..."
+docker exec -u ubuntu -w /home/ubuntu MentorPi pkill -f line_following
+sleep 2
+
 echo "[INFO] Starting navigation stack (init_robot.py)..."
 docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; python3 /home/ubuntu/shared/sv_robot/init_robot.py > /tmp/init_robot.log 2>&1 &"
 
