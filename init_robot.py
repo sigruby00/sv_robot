@@ -80,21 +80,24 @@ def main():
     # launch_cmd = "source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=home_02"
     # params_file = "nav2_controller_pure_pursuit.yaml" if USE_PURE_PURSUIT else "nav2_controller_teb.yaml"
     # params_file = "~/ros2_ws/src/navigation/config/nav2_params.yaml"
-    params_file = "~/ros2_ws/src/navigation/config/nav2_controller_teb.yaml"
-    map_file = "/home/ubuntu/shared/sv_robot/map_info/lab_test"
+    # params_file = "~/ros2_ws/src/navigation/config/nav2_controller_teb.yaml"
+    # map_file = "/home/ubuntu/shared/sv_robot/map_info/lab_test"
     # launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=lab_test tab:=true params_file:={params_file}"
-    launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=lab_test"
+    # launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=lab_test"
     # launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:={map_file} tab:=true params_file:={params_file}"
     # launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:={map_file} tab:=true params_file:={params_file}"
     # launch_cmd = f"source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:={map_file}"
     # launch_cmd = "source /home/ubuntu/ros2_ws/.zshrc && ros2 launch nav2_bringup bringup_launch.py map:=~/ros2_ws/src/slam/maps/home_02 params_file:=nav2_controller_teb.yaml"
+
+    launch_cmd = f"ros2 run nav2_map_server map_server --ros-args -r map:=lab_test"
     nav_process = run_command(f"zsh -c '{launch_cmd}'", wait=False)
+
 
     # navigation stack이 완전히 뜰 때까지 대기 (/amcl/get_state 서비스 등장 대기)
     # wait_for_service('/amcl/get_state', timeout=90)
 
     # 4. call reinitialize global localization
-    run_command("ros2 service call /reinitialize_global_localization std_srvs/srv/Empty", wait=False)
+    # run_command("ros2 service call /reinitialize_global_localization std_srvs/srv/Empty", wait=False)
     # time.sleep(5)
 
     # import rclpy
