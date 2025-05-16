@@ -79,11 +79,13 @@ def main():
 
         # Start map server
         run_command("ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=/home/ubuntu/shared/sv_robot/map_info/lab_test.yaml", wait=False)
-        time.sleep(3)
+        time.sleep(5)
 
         # Configure and activate map_server lifecycle
         run_command("ros2 lifecycle set /map_server configure")
+        time.sleep(3)
         run_command("ros2 lifecycle set /map_server activate")
+        time.sleep(3)
 
         static_tf_cmd = (
             f"ros2 run tf2_ros static_transform_publisher "
@@ -98,6 +100,7 @@ def main():
     # run_command("~/.stop_ros.sh")
     # run_command("/home/ubuntu/.stop_ros.sh", wait=True)
     # time.sleep(5)
+    #
 
     # 2. launch navigation (run in background using subprocess)
     # launch_cmd = "source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=room_01"
