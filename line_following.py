@@ -30,7 +30,7 @@ class LineFollower:
         if os.environ['DEPTH_CAMERA_TYPE'] == 'ascamera':
             self.rois = ((0.9, 0.95, 0, 1, 0.7), (0.8, 0.85, 0, 1, 0.2), (0.7, 0.75, 0, 1, 0.1))
         else:
-            self.rois = ((0.85, 0.90, 0, 1, 0.6), (0.70, 0.75, 0, 1, 0.3), (0.55, 0.60, 0, 1, 0.1))
+            self.rois = ((0.81, 0.83, 0, 1, 0.7), (0.69, 0.71, 0, 1, 0.2), (0.57, 0.59, 0, 1, 0.1))
         self.weight_sum = 1.0
 
     @staticmethod
@@ -62,18 +62,22 @@ class LineFollower:
         # Use HSV-based green color mask extraction for green tape following.
         for roi in self.rois:
             blob = image[int(roi[0]*h):int(roi[1]*h), int(roi[2]*w):int(roi[3]*w)]  # 截取roi(intercept roi)
-            # Convert to HSV and extract green mask with brightness filtering
+            # Convert to HSV and extract green mask
             hsv = cv2.cvtColor(blob, cv2.COLOR_RGB2HSV)
-            lower_green = np.array([40, 50, 50])
-            upper_green = np.array([85, 255, 255])
-            mask_hsv = cv2.inRange(hsv, lower_green, upper_green)
-            v_channel = hsv[:, :, 2]
-            mask_brightness = cv2.inRange(v_channel, 60, 255)
-            mask = cv2.bitwise_and(mask_hsv, mask_brightness)
-            kernel_size = 5 if h > 480 else 3
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
-            eroded = cv2.erode(mask, kernel)  # 腐蚀(corrode)
-            dilated = cv2.dilate(eroded, kernel)  # 膨胀(dilate)
+            # lower_green = np.array([40, 50, 50])
+            # upper_green = np.array([85, 255, 255])
+            # mask = cv2.inRange(hsv, lower_green, upper_green)
+            lower_red1 = np.array([0, 70, 50])
+            upper_red1 = np.array([10, 255, 255])
+            lower_red2 = np.array([170, 70, 50])
+            upper_red2 = np.array([180, 255, 255])
+            mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+            mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+            # mask_hsv = cv2.bitwise_or(mask1, mask2)
+            mask = cv2.bitwise_or(mask1, mask2)
+
+            eroded = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  # 腐蚀(corrode)
+            dilated = cv2.dilate(eroded, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))  # 膨胀(dilate)
             # cv2.imshow('section:{}:{}'.format(roi[0], roi[1]), cv2.cvtColor(dilated, cv2.COLOR_GRAY2BGR))
             contours = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[-2]  # 找轮廓(find the contour)
             max_contour_area = self.get_widest_contour(contours, 100)  # 获取最大宽度对应轮廓(get the contour corresponding to the widest bounding box)
@@ -343,7 +347,7 @@ class LineFollowingNode(Node):
                     self.get_logger().error(str(e))
             else:
                 twist = Twist()
-                twist.linear.x = 0.15
+                twist.linear.x = 0.25
                 if self.follower is not None:
                     try:
                         result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
@@ -380,3 +384,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
