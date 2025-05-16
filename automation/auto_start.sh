@@ -64,8 +64,20 @@ done
 
 # 기존 line_following 노드가 있으면 종료
 # (docker 컨테이너 MentorPi 내부에서 실행)
-echo "[INFO] Killing any running line_following nodes..."
-docker exec -u ubuntu -w /home/ubuntu MentorPi pkill -f line_following
+echo "[INFO] Killing any running line_following and related ROS nodes..."
+docker exec -u ubuntu -w /home/ubuntu MentorPi bash -c '\
+pkill -f line_following && \
+pkill -f hand_gesture && \
+pkill -f hand_trajectory && \
+pkill -f joystick_control && \
+pkill -f joy_node && \
+pkill -f object_tracking && \
+pkill -f web_video_server && \
+pkill -f rosbridge_websocket && \
+pkill -f rosapi && \
+pkill -f rosapi_params && \
+pkill -f joint_state_publisher && \
+pkill -f /rosbridge_websocket'
 sleep 2
 
 echo "[INFO] Starting navigation stack (init_robot.py)..."
