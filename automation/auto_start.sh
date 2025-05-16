@@ -36,19 +36,6 @@ docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "mkdir -p /home/ubunt
     #     print(f"Warning: No initial pose found for robot ID {ROBOT_ID}")
 
 
-# 1. map_server 준비 대기
-MAP_TOPIC="/map"
-echo "[INFO] Waiting for $MAP_TOPIC topic to be available..."
-while true; do
-    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 topic list | grep $MAP_TOPIC" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[INFO] $MAP_TOPIC topic is available."
-        break
-    fi
-    sleep 2
-done
-
-
 # 2. EKF 노드 준비 대기 (노드가 discovery될 때까지 대기)
 EKF_NODE="/ekf_filter_node"
 echo "[INFO] Waiting for $EKF_NODE node to be available..."
