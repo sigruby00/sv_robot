@@ -17,52 +17,52 @@ echo "[INFO] Starting navigation stack (init_robot.py)..."
 docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; python3 /home/ubuntu/shared/sv_robot/init_robot.py > /tmp/init_robot.log 2>&1 &"
 
 
-# 3-2. AMCL get_state 서비스 대기
-echo "[INFO] Waiting for /get_state service to be available..."
-while true; do
-    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 service list | grep /get_state" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[INFO] /get_state service is available."
-        break
-    fi
-    sleep 2
-done
+# # 3-2. AMCL get_state 서비스 대기
+# echo "[INFO] Waiting for /get_state service to be available..."
+# while true; do
+#     docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 service list | grep /get_state" > /dev/null 2>&1
+#     if [ $? -eq 0 ]; then
+#         echo "[INFO] /get_state service is available."
+#         break
+#     fi
+#     sleep 2
+# done
 
-# 5. 카메라 토픽 대기
-CAMERA_TOPIC="ascamera/camera_publisher/rgb0/image"
-echo "[INFO] Waiting for $CAMERA_TOPIC topic to be available..."
-while true; do
-    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $CAMERA_TOPIC" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[INFO] $CAMERA_TOPIC topic is available."
-        break
-    fi
-    sleep 2
-done
+# # 5. 카메라 토픽 대기
+# CAMERA_TOPIC="ascamera/camera_publisher/rgb0/image"
+# echo "[INFO] Waiting for $CAMERA_TOPIC topic to be available..."
+# while true; do
+#     docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $CAMERA_TOPIC" > /dev/null 2>&1
+#     if [ $? -eq 0 ]; then
+#         echo "[INFO] $CAMERA_TOPIC topic is available."
+#         break
+#     fi
+#     sleep 2
+# done
 
-# 6. 라이다 토픽 대기
-LIDAR_TOPIC="/scan_raw"
-echo "[INFO] Waiting for $LIDAR_TOPIC topic to be available..."
-while true; do
-    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $LIDAR_TOPIC" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[INFO] $LIDAR_TOPIC topic is available."
-        break
-    fi
-    sleep 2
-done
+# # 6. 라이다 토픽 대기
+# LIDAR_TOPIC="/scan_raw"
+# echo "[INFO] Waiting for $LIDAR_TOPIC topic to be available..."
+# while true; do
+#     docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $LIDAR_TOPIC" > /dev/null 2>&1
+#     if [ $? -eq 0 ]; then
+#         echo "[INFO] $LIDAR_TOPIC topic is available."
+#         break
+#     fi
+#     sleep 2
+# done
 
-# 7. mecanum 제어 토픽 대기
-CMDVEL_TOPIC="/controller/cmd_vel"
-echo "[INFO] Waiting for $CMDVEL_TOPIC topic to be available..."
-while true; do
-    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $CMDVEL_TOPIC" > /dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo "[INFO] $CMDVEL_TOPIC topic is available."
-        break
-    fi
-    sleep 2
-done
+# # 7. mecanum 제어 토픽 대기
+# CMDVEL_TOPIC="/controller/cmd_vel"
+# echo "[INFO] Waiting for $CMDVEL_TOPIC topic to be available..."
+# while true; do
+#     docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source ~/.zshrc; ros2 topic list | grep $CMDVEL_TOPIC" > /dev/null 2>&1
+#     if [ $? -eq 0 ]; then
+#         echo "[INFO] $CMDVEL_TOPIC topic is available."
+#         break
+#     fi
+#     sleep 2
+# done
 
 # 8. line_following 서비스 준비 확인
 # echo "[INFO] Waiting for /line_following/init_finish service..."

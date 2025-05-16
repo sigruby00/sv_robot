@@ -70,34 +70,10 @@ def main():
     # os.environ["ROS_DOMAIN_ID"] = str(ROBOT_ID)
     update_ros_domain_in_file("/home/ubuntu/ros2_ws/.typerc", str(ROBOT_ID))
 
-    pose = INITIAL_POSES.get(ROBOT_ID)
-    if pose:
-
-
-        # Set EKF frequency
-        run_command("ros2 param set /ekf_filter_node frequency 30.0")
-
-        # Start map server
-        run_command("ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=/home/ubuntu/shared/sv_robot/map_info/lab_test.yaml", wait=False)
-        time.sleep(3)
-
-        # Configure and activate map_server lifecycle
-        run_command("ros2 lifecycle set /map_server configure")
-        run_command("ros2 lifecycle set /map_server activate")
-
-        static_tf_cmd = (
-            f"ros2 run tf2_ros static_transform_publisher "
-            f"{pose['x']} {pose['y']} 0 0 0 0 map odom"
-        )
-        run_command(static_tf_cmd, wait=False)
-    else:
-        print(f"Warning: No initial pose found for robot ID {ROBOT_ID}")
-
-
     # 1. stop existing ROS nodes
     # run_command("~/.stop_ros.sh")
-    # run_command("/home/ubuntu/.stop_ros.sh", wait=True)
-    # time.sleep(5)
+    run_command("/home/ubuntu/.stop_ros.sh", wait=True)
+    time.sleep(5)
 
     # 2. launch navigation (run in background using subprocess)
     # launch_cmd = "source /home/ubuntu/ros2_ws/.zshrc && ros2 launch navigation navigation.launch.py map:=room_01"

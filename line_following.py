@@ -323,23 +323,23 @@ class LineFollowingNode(Node):
                     min_dist_left = min_dist_left_.min()
                     min_dist_right = min_dist_right_.min()
                     if min_dist_left < self.stop_threshold or min_dist_right < self.stop_threshold:
-                        if not self.stop:
-                            self.get_logger().warn(f"[LIDAR] STOP! min_left={min_dist_left:.2f}, min_right={min_dist_right:.2f}")
+                        # if not self.stop:
+                            # self.get_logger().warn(f"[LIDAR] STOP! min_left={min_dist_left:.2f}, min_right={min_dist_right:.2f}")
                         self.stop = True
                     else:
                         self.count += 1
                         if self.count > 5:
-                            if self.stop:
-                                self.get_logger().info("[LIDAR] Resume, no obstacle.")
+                            # if self.stop:
+                                # self.get_logger().info("[LIDAR] Resume, no obstacle.")
                             self.count = 0
                             self.stop = False
-                self.get_logger().info(f"[LIDAR] self.stop={self.stop}")
+                # self.get_logger().info(f"[LIDAR] self.stop={self.stop}")
         except Exception as e:
             self.get_logger().error(f"[LIDAR] Exception: {str(e)}")
 
     def image_callback(self, ros_image):
         try:
-            self.get_logger().info(f"[IMAGE] image_callback called, self.stop={self.stop}")
+            # self.get_logger().info(f"[IMAGE] image_callback called, self.stop={self.stop}")
             cv_image = self.bridge.imgmsg_to_cv2(ros_image, "rgb8")
             rgb_image = np.array(cv_image, dtype=np.uint8)
             self.image_height, self.image_width = rgb_image.shape[:2]
@@ -370,20 +370,20 @@ class LineFollowingNode(Node):
                                         twist.angular.z = twist.linear.x/R
                                 else:
                                     twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
-                                self.get_logger().info(f"[IMAGE] Following line, stop={self.stop}, twist=({twist.linear.x},{twist.angular.z})")
+                                # self.get_logger().info(f"[IMAGE] Following line, stop={self.stop}, twist=({twist.linear.x},{twist.angular.z})")
                                 self.mecanum_pub.publish(twist)
-                                self.get_logger().info("[IMAGE] Published twist for line following.")
+                                # self.get_logger().info("[IMAGE] Published twist for line following.")
                             elif self.stop:
-                                self.get_logger().warn("[IMAGE] STOP requested by LIDAR! Publishing Twist() (stop)")
+                                # self.get_logger().warn("[IMAGE] STOP requested by LIDAR! Publishing Twist() (stop)")
                                 self.mecanum_pub.publish(Twist())
-                                self.get_logger().info("[IMAGE] Published Twist() for STOP.")
+                                # self.get_logger().info("[IMAGE] Published Twist() for STOP.")
                             else:
-                                self.get_logger().info(f"[IMAGE] PID clear, stop={self.stop}")
+                                # self.get_logger().info(f"[IMAGE] PID clear, stop={self.stop}")
                                 self.pid.clear()
                         except Exception as e:
-                            self.get_logger().error(f"[IMAGE] Follower Exception: {str(e)}")
+                            # self.get_logger().error(f"[IMAGE] Follower Exception: {str(e)}")
                             self.mecanum_pub.publish(Twist())
-                            self.get_logger().warn("[IMAGE] Exception occurred, forced STOP.")
+                            # self.get_logger().warn("[IMAGE] Exception occurred, forced STOP.")
         except Exception as e:
             self.get_logger().error(f"[IMAGE] Outer Exception: {str(e)}")
             try:
