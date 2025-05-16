@@ -10,7 +10,68 @@ sleep 5
 echo "[INFO] Syncing maps to ROS2 workspace..."
 docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "mkdir -p /home/ubuntu/ros2_ws/src/slam/maps && cp -r /home/ubuntu/shared/sv_robot/map_info/* /home/ubuntu/ros2_ws/src/slam/maps/"
 
-docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "~/.stop_ros.sh"
+# docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "~/.stop_ros.sh"
+
+
+
+
+
+    #     # Set EKF frequency
+    #     run_command("ros2 param set /ekf_filter_node frequency 30.0")
+
+    #     # Start map server
+    #     run_command("ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=/home/ubuntu/shared/sv_robot/map_info/lab_test.yaml", wait=False)
+    #     time.sleep(3)
+
+    #     # Configure and activate map_server lifecycle
+    #     run_command("ros2 lifecycle set /map_server configure")
+    #     run_command("ros2 lifecycle set /map_server activate")
+
+    #     static_tf_cmd = (
+    #         f"ros2 run tf2_ros static_transform_publisher "
+    #         f"{pose['x']} {pose['y']} 0 0 0 0 map odom"
+    #     )
+    #     run_command(static_tf_cmd, wait=False)
+    # else:
+    #     print(f"Warning: No initial pose found for robot ID {ROBOT_ID}")
+
+
+# 1. map_server 준비 대기
+MAP_TOPIC="/map"
+echo "[INFO] Waiting for $MAP_TOPIC topic to be available..."
+while true; do
+    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 topic list | grep $MAP_TOPIC" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "[INFO] $MAP_TOPIC topic is available."
+        break
+    fi
+    sleep 2
+done
+
+
+# 2. EKF 노드 준비 대기 (노드가 discovery될 때까지 대기)
+EKF_NODE="/ekf_filter_node"
+echo "[INFO] Waiting for $EKF_NODE node to be available..."
+while true; do
+    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 node list | grep $EKF_NODE" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "[INFO] $EKF_NODE node is available."
+        break
+    fi
+    sleep 2
+done
+
+# 3. static_transform_publisher 준비 대기 (예: /tf_static)
+TF_TOPIC="/tf_static"
+echo "[INFO] Waiting for $TF_TOPIC topic to be available..."
+while true; do
+    docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; ros2 topic list | grep $TF_TOPIC" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "[INFO] $TF_TOPIC topic is available."
+        break
+    fi
+    sleep 2
+done
 
 # 2. navigation 및 AMCL 등 메인 ROS2 스택 실행 (init_robot.py는 navigation만 실행)
 echo "[INFO] Starting navigation stack (init_robot.py)..."
