@@ -98,7 +98,6 @@ class LineFollower:
         deflection_angle = -math.atan((center_pos - (w / 2.0)) / (h / 2.0))   # 计算线角度(calculate the line angle)
         return result_image, deflection_angle
 
-# test
 class LineFollowingNode(Node):
     def __init__(self, name):
         # rclpy.init()
@@ -381,5 +380,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
