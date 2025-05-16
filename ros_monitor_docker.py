@@ -50,11 +50,16 @@ class CommandReceiver(Node):
             try:
                 data, _ = self.cmd_sock.recvfrom(1024)
                 command = json.loads(data.decode())
+                print(command)
                 # navigation commands
                 nav = command.get('navigation')
                 if nav is not None:
-                    action_value = str(nav['action']).lower()
+                    action_value = str(nav['action'])
                     command = f"ros2 service call /line_following/set_running std_srvs/srv/SetBool '{{data: {action_value}}}'"
+
+                    run_command(command, wait=False)
+
+
                 # manual actions
                 action = command.get('action')
                 if action:
@@ -160,6 +165,11 @@ def main():
     executor = rclpy.executors.MultiThreadedExecutor()
     for n in nodes:
         executor.add_node(n)
+
+    time.sleep(3)
+    run_command("ros2 service call /line_following/enter std_srvs/srv/Trigger '{}'", wait=False)
+    time.sleep(3)
+    run_command("ros2 service call /line_following/force_pick_color std_srvs/srv/Trigger '{}'", wait=False)
 
     try:
         executor.spin()
