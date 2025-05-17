@@ -372,12 +372,21 @@ class LineFollowingNode(Node):
                     if self.follower is not None:
                         try:
                             result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
+                            # stop에서 해제된 직후, 라인이 안 보이거나(아래 else), 라인이 보이더라도 skip publish 조건이어도 반드시 천천히 직진 publish
+                            if stop_changed and self.is_running:
+                                twist = Twist()
+                                twist.linear.x = 0.08  # 느리게 직진
+                                twist.angular.z = 0.0
+                                self.get_logger().info("[LIDAR] 장애물 해제, 라인 미탐지 또는 skip 상태: 천천히 직진")
+                                self.mecanum_pub.publish(twist)
+                                self.pid.clear()
+                                return
                             # skip if decision is similar to last
                             if deflection_angle is not None and self.is_running and not self.stop:
                                 # 유사한 steering이면 publish skip
                                 decision = round(deflection_angle, 2)
                                 if last is not None and abs(decision - last) < 0.03:
-                                    print(f"skip publish: {decision} - {last}")
+                                    # print(f"skip publish: {decision} - {last}")
                                     return
                                 self.last_decision = decision
                                 # now = self.get_clock().now()
