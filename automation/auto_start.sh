@@ -70,7 +70,8 @@ done
 # (docker 컨테이너 MentorPi 내부에서 실행)
 echo "[INFO] Killing any running line_following and related ROS nodes..."
 
-for PROC in line_following hand_gesture hand_trajectory joystick_control joy_node object_tracking web_video_server rosbridge_websocket rosapi rosapi_params joint_state_publisher
+# for PROC in line_following hand_gesture hand_trajectory joystick_control joy_node object_tracking web_video_server rosbridge_websocket rosapi rosapi_params joint_state_publisher
+for PROC in line_following hand_gesture hand_trajectory joystick_control joy_node object_tracking web_video_server rosbridge_websocket rosapi rosapi_params
 do
     docker exec -u ubuntu -w /home/ubuntu MentorPi pkill -f $PROC
 done
