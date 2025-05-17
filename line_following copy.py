@@ -339,17 +339,12 @@ class LineFollowingNode(Node):
 
     def image_callback(self, ros_image):
         try:
+            # self.get_logger().info(f"[IMAGE] image_callback called, self.stop={self.stop}")
             cv_image = self.bridge.imgmsg_to_cv2(ros_image, "rgb8")
             rgb_image = np.array(cv_image, dtype=np.uint8)
             self.image_height, self.image_width = rgb_image.shape[:2]
             result_image = np.copy(rgb_image)
             with self.lock:
-                # 最近决定과 유사하면 skip (중복 명령 방지)
-                if hasattr(self, 'last_decision'):
-                    last = self.last_decision
-                else:
-                    last = None
-                decision = None
                 if self.color_picker is not None:
                     try:
                         target_color, result_image = self.color_picker(rgb_image, result_image)
@@ -366,20 +361,16 @@ class LineFollowingNode(Node):
                     if self.follower is not None:
                         try:
                             result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
-                            # skip if decision is similar to last
                             if deflection_angle is not None and self.is_running and not self.stop:
-                                # 유사한 steering이면 publish skip
-                                decision = round(deflection_angle, 2)
-                                if last is not None and abs(decision - last) < 0.03:
-                                    print(f"skip publish: {decision} - {last}")
+                                # Publish cmd_vel at most every 500ms (2Hz)
+                                now = self.get_clock().now()
+                                if not hasattr(self, 'last_pub_time'):
+                                    self.last_pub_time = now
+                                # if (now - self.last_pub_time).nanoseconds < 5e8:
+                                # if (now - self.last_pub_time).nanoseconds < 2e8: # 5Hz
+                                if (now - self.last_pub_time).nanoseconds < 1e8: # 5Hz
                                     return
-                                self.last_decision = decision
-                                # now = self.get_clock().now()
-                                # if not hasattr(self, 'last_pub_time'):
-                                    # self.last_pub_time = now
-                                # if (now - self.last_pub_time).nanoseconds < 1e8: #limit publish rate
-                                    # return
-                                # self.last_pub_time = now
+                                self.last_pub_time = now
                                 self.pid.update(deflection_angle)
                                 if self.machine_type == 'MentorPi_Acker':
                                     steering_angle = common.set_range(-self.pid.output, -math.radians(322/2000*180), math.radians(322/2000*180))
@@ -388,13 +379,20 @@ class LineFollowingNode(Node):
                                         twist.angular.z = twist.linear.x/R
                                 else:
                                     twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
+                                # self.get_logger().info(f"[IMAGE] Following line, stop={self.stop}, twist=({twist.linear.x},{twist.angular.z})")
                                 self.mecanum_pub.publish(twist)
+                                # self.get_logger().info("[IMAGE] Published twist for line following.")
                             elif self.stop:
+                                # self.get_logger().warn("[IMAGE] STOP requested by LIDAR! Publishing Twist() (stop)")
                                 self.mecanum_pub.publish(Twist())
+                                # self.get_logger().info("[IMAGE] Published Twist() for STOP.")
                             else:
+                                # self.get_logger().info(f"[IMAGE] PID clear, stop={self.stop}")
                                 self.pid.clear()
                         except Exception as e:
+                            # self.get_logger().error(f"[IMAGE] Follower Exception: {str(e)}")
                             self.mecanum_pub.publish(Twist())
+                            # self.get_logger().warn("[IMAGE] Exception occurred, forced STOP.")
         except Exception as e:
             self.get_logger().error(f"[IMAGE] Outer Exception: {str(e)}")
             try:
