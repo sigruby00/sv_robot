@@ -350,6 +350,12 @@ class LineFollowingNode(Node):
                 else:
                     last = None
                 decision = None
+                # lidar stop 해제 후 라인이 안 보이면 천천히 직진
+                stop_changed = False
+                if hasattr(self, 'last_stop'):
+                    if self.last_stop and not self.stop:
+                        stop_changed = True
+                self.last_stop = self.stop
                 if self.color_picker is not None:
                     try:
                         target_color, result_image = self.color_picker(rgb_image, result_image)
@@ -392,6 +398,13 @@ class LineFollowingNode(Node):
                             elif self.stop:
                                 self.mecanum_pub.publish(Twist())
                             else:
+                                # stop에서 해제된 직후, 라인이 안 보이면 천천히 직진
+                                if stop_changed and self.is_running:
+                                    twist = Twist()
+                                    twist.linear.x = 0.08  # 느리게 직진
+                                    twist.angular.z = 0.0
+                                    self.get_logger().info("[LIDAR] 장애물 해제, 라인 미탐지: 천천히 직진")
+                                    self.mecanum_pub.publish(twist)
                                 self.pid.clear()
                         except Exception as e:
                             self.mecanum_pub.publish(Twist())
