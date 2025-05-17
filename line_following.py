@@ -362,6 +362,13 @@ class LineFollowingNode(Node):
                         try:
                             result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
                             if deflection_angle is not None and self.is_running and not self.stop:
+                                # Publish cmd_vel at most every 500ms (2Hz)
+                                now = self.get_clock().now()
+                                if not hasattr(self, 'last_pub_time'):
+                                    self.last_pub_time = now
+                                if (now - self.last_pub_time).nanoseconds < 5e8:
+                                    return
+                                self.last_pub_time = now
                                 self.pid.update(deflection_angle)
                                 if self.machine_type == 'MentorPi_Acker':
                                     steering_angle = common.set_range(-self.pid.output, -math.radians(322/2000*180), math.radians(322/2000*180))
