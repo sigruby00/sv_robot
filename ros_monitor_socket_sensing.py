@@ -357,6 +357,13 @@ def scan_loop():
 # SERVER_URL_RTP = 'https://ccf9aec2f845.ngrok.app:5002'
 SERVER_URL = 'http://10.243.76.27:6789'
 
+def socketio_reconnect_watchdog():
+    while True:
+        if not sio.connected:
+            print("[Watchdog] Socket.IO not connected. Trying to reconnect...")
+            reconnect_socket()
+        time.sleep(3)
+
 def main():
     host_ip = '0.0.0.0'  # 모든 인터페이스에서 수신
     port = 9000
@@ -377,6 +384,7 @@ def main():
 
     threading.Thread(target=sensing_loop, daemon=True).start()
     threading.Thread(target=scan_loop, daemon=True).start()
+    threading.Thread(target=socketio_reconnect_watchdog, daemon=True).start()
 
     # 수신 및 전송 루프
     while True:
