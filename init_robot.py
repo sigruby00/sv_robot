@@ -87,9 +87,15 @@ def main():
         run_command("ros2 lifecycle set /map_server activate")
         time.sleep(3)
 
+        import math
+        def quaternion_to_yaw(z, w):
+            return math.atan2(2.0 * w * z, 1.0 - 2.0 * z * z)
+
+        yaw = quaternion_to_yaw(pose['ori_z'], pose['ori_w'])
+
         static_tf_cmd = (
             f"ros2 run tf2_ros static_transform_publisher "
-            f"{pose['x']} {pose['y']} 0 0 0 0 map odom"
+            f"{pose['x']} {pose['y']} 0 0 0 {yaw} map odom"
         )
         run_command(static_tf_cmd, wait=False)
     else:
