@@ -64,21 +64,19 @@ done
 
 # 기존 line_following 노드가 있으면 종료
 # (docker 컨테이너 MentorPi 내부에서 실행)
+# ...existing code...
+
+# 기존 line_following 노드가 있으면 종료
+# (docker 컨테이너 MentorPi 내부에서 실행)
 echo "[INFO] Killing any running line_following and related ROS nodes..."
-docker exec -u ubuntu -w /home/ubuntu MentorPi bash -c '\
-pkill -f line_following && \
-pkill -f hand_gesture && \
-pkill -f hand_trajectory && \
-pkill -f joystick_control && \
-pkill -f joy_node && \
-pkill -f object_tracking && \
-pkill -f web_video_server && \
-pkill -f rosbridge_websocket && \
-pkill -f rosapi && \
-pkill -f rosapi_params && \
-pkill -f joint_state_publisher && \
-pkill -f /rosbridge_websocket'
+
+for PROC in line_following hand_gesture hand_trajectory joystick_control joy_node object_tracking web_video_server rosbridge_websocket rosapi rosapi_params joint_state_publisher
+do
+    docker exec -u ubuntu -w /home/ubuntu MentorPi pkill -f $PROC
+done
 sleep 2
+
+# ...existing code...
 
 echo "[INFO] Starting navigation stack (init_robot.py)..."
 docker exec -u ubuntu -w /home/ubuntu MentorPi /bin/zsh -c "source /home/ubuntu/ros2_ws/.zshrc; python3 /home/ubuntu/shared/sv_robot/init_robot.py > /tmp/init_robot.log 2>&1 &"

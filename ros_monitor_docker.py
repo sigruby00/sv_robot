@@ -139,7 +139,7 @@ class CameraSender(Node):
     def camera_callback(self, msg):
         try:
             img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-            img = cv2.resize(img, (160, 120))
+            img = cv2.resize(img, (320, 240))
             _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
             self.camera_frame = jpeg.tobytes()
         except Exception:
