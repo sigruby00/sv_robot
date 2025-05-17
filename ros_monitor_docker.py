@@ -134,28 +134,47 @@ class CameraSender(Node):
         self.host_ip, self.port = '10.243.76.27', 9001
 
         self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
-        self.create_timer(0.2, self.send_image)  # reduced to 5Hz
+        # self.create_timer(0.2, self.send_image)  # reduced to 5Hz
 
     def camera_callback(self, msg):
         try:
             img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
             img = cv2.resize(img, (320, 240))
             _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
-            self.camera_frame = jpeg.tobytes()
+            self.send_image(jpeg.tobytes())  # frame 새로 들어올 때마다 바로 전송
         except Exception:
             pass
 
-    def send_image(self):
-        if not self.camera_frame:
-            return
+    def send_image(self, jpeg_bytes):
         rid = int(robot_id).to_bytes(2, 'big')
-        payload = rid + self.camera_frame
+        payload = rid + jpeg_bytes
         if len(payload) < 30720:
             payload += b'\x00' * (30720 - len(payload))
         try:
             self.sock.sendto(payload, (self.host_ip, self.port))
         except Exception:
             pass
+
+    # def camera_callback(self, msg):
+    #     try:
+    #         img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+    #         img = cv2.resize(img, (320, 240))
+    #         _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
+    #         self.camera_frame = jpeg.tobytes()
+    #     except Exception:
+    #         pass
+
+    # def send_image(self):
+    #     if not self.camera_frame:
+    #         return
+    #     rid = int(robot_id).to_bytes(2, 'big')
+    #     payload = rid + self.camera_frame
+    #     if len(payload) < 30720:
+    #         payload += b'\x00' * (30720 - len(payload))
+    #     try:
+    #         self.sock.sendto(payload, (self.host_ip, self.port))
+    #     except Exception:
+    #         pass
 
 from line_following import LineFollowingNode
 
