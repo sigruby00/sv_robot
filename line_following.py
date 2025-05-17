@@ -367,7 +367,8 @@ class LineFollowingNode(Node):
                                 if not hasattr(self, 'last_pub_time'):
                                     self.last_pub_time = now
                                 # if (now - self.last_pub_time).nanoseconds < 5e8:
-                                if (now - self.last_pub_time).nanoseconds < 2e8: # 5Hz
+                                # if (now - self.last_pub_time).nanoseconds < 2e8: # 5Hz
+                                if (now - self.last_pub_time).nanoseconds < 1e8: # 5Hz
                                     return
                                 self.last_pub_time = now
                                 self.pid.update(deflection_angle)
