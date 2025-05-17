@@ -140,7 +140,7 @@ class CameraSender(Node):
         try:
             img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
             img = cv2.resize(img, (320, 240))
-            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
+            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 100])
             self.send_image(jpeg.tobytes())  # frame 새로 들어올 때마다 바로 전송
         except Exception:
             pass
