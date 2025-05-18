@@ -280,6 +280,12 @@ class LineFollowingNode(Node):
             self.empty = 0
             if not self.is_running:
                 self.mecanum_pub.publish(Twist())
+            else:
+                # 재시작 시 내부 상태 초기화
+                self.pid.clear()
+                if hasattr(self, 'last_decision'):
+                    self.last_decision = None
+                self.last_stop = False  # lidar 장애물 해제 상태도 초기화
         response.success = True
         response.message = "set_running"
         return response
@@ -323,14 +329,14 @@ class LineFollowingNode(Node):
                     min_dist_left = min_dist_left_.min()
                     min_dist_right = min_dist_right_.min()
                     if min_dist_left < self.stop_threshold or min_dist_right < self.stop_threshold:
-                        # if not self.stop:
-                            # self.get_logger().warn(f"[LIDAR] STOP! min_left={min_dist_left:.2f}, min_right={min_dist_right:.2f}")
+                        if not self.stop:
+                            self.get_logger().warn(f"[LIDAR] STOP! min_left={min_dist_left:.2f}, min_right={min_dist_right:.2f}")
                         self.stop = True
                     else:
                         self.count += 1
                         if self.count > 5:
-                            # if self.stop:
-                                # self.get_logger().info("[LIDAR] Resume, no obstacle.")
+                            if self.stop:
+                                self.get_logger().info("[LIDAR] Resume, no obstacle.")
                             self.count = 0
                             self.stop = False
                 # self.get_logger().info(f"[LIDAR] self.stop={self.stop}")
@@ -356,6 +362,9 @@ class LineFollowingNode(Node):
                     if self.last_stop and not self.stop:
                         stop_changed = True
                 self.last_stop = self.stop
+                if stop_changed:
+                    self.last_decision = None
+                    self.pid.clear()
                 if self.color_picker is not None:
                     try:
                         target_color, result_image = self.color_picker(rgb_image, result_image)
@@ -388,7 +397,7 @@ class LineFollowingNode(Node):
                                     return
                             if deflection_angle is not None and self.is_running and not self.stop:
                                 decision = round(deflection_angle, 2)
-                                if last is not None and abs(decision - last) < 0.1:
+                                if last is not None and abs(decision - last) < 0.05:
                                     return
                                 self.last_decision = decision
                                 self.pid.update(deflection_angle)

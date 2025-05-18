@@ -57,6 +57,8 @@ class CommandReceiver(Node):
                     action_value = str(nav['action'])
                     command = f"ros2 service call /line_following/set_running std_srvs/srv/SetBool '{{data: {action_value}}}'"
 
+                    print(f"Command: {command}")
+
                     run_command(command, wait=False)
 
 
