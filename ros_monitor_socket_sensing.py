@@ -47,7 +47,9 @@ def reconnect_socket():
     for i in range(5):
         try:
             if sio.connected:
-                sio.disconnect()
+                # sio.disconnect()
+                print("✅ Already connected to server.")
+                return
             time.sleep(0.5)
             sio.connect(SERVER_URL, auth={'robot_id': str(robot_id)})
             print("✅ Reconnected to server after handover.")
@@ -307,13 +309,13 @@ def handover_ap(target_bssid):
         last_handover_time = time.time()
 
         # BSSID 전환 확인
-        for _ in range(10):
+        for _ in range(15):
             bssid = get_current_bssid()
             if bssid and bssid == target_bssid:
                 print(f"Confirmed BSSID after roam: {bssid}")
                 break
             print("Waiting for BSSID confirmation...")
-            time.sleep(0.5)
+            time.sleep(0.1)
         else:
             print(f"Warning: BSSID {target_bssid} not confirmed after roam.")
 
@@ -325,7 +327,10 @@ def handover_ap(target_bssid):
                 break
             except subprocess.CalledProcessError:
                 print("Waiting for network availability...")
-                time.sleep(0.5)
+                time.sleep(0.1)
+
+        # socket.io 강제 reconnect
+        reconnect_socket_background()
 
         # handover 후 scan 즉시 실행 (RSSI 최신화)
         try:
@@ -334,8 +339,7 @@ def handover_ap(target_bssid):
         except Exception as e:
             print(f"[Handover] Immediate scan error: {e}")
 
-        # socket.io 강제 reconnect
-        reconnect_socket_background()
+
 
     except subprocess.CalledProcessError as e:
         print(f"Error during handover: {e}")
