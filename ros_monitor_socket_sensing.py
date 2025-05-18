@@ -44,19 +44,22 @@ MOVING_AVG_N = 2  # moving average window 축소(더 빠른 반영)
 
 # Reconnect helper for socket.io
 def reconnect_socket():
-    for i in range(5):
+    for i in range(20):
         try:
             if sio.connected:
                 # sio.disconnect()
                 print("✅ Already connected to server.")
+                sio.emit('handover_done', {'robot_id': str(robot_id)})
                 return
-            time.sleep(0.5)
             sio.connect(SERVER_URL, auth={'robot_id': str(robot_id)})
             print("✅ Reconnected to server after handover.")
             return True
         except Exception as e:
             print(f"Reconnect attempt {i+1} failed: {e}")
-            time.sleep(2)
+            time.sleep(0.1)
+    # ping 성공 시점에 handover_done emit
+    if sio.connected:
+        sio.emit('handover_done', {'robot_id': str(robot_id)})
     print("❌ Failed to reconnect after handover.")
     return False
 
@@ -324,9 +327,7 @@ def handover_ap(target_bssid):
             try:
                 subprocess.check_output(["ping", "-c", "1", "-W", "1", "10.243.76.1"], stderr=subprocess.DEVNULL)
                 print("Network connectivity confirmed after roam.")
-                # ping 성공 시점에 handover_done emit
-                if sio.connected:
-                    sio.emit('handover_done', {'robot_id': str(robot_id)})
+
                 break
             except subprocess.CalledProcessError:
                 print("Waiting for network availability...")
