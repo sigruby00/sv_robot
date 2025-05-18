@@ -125,6 +125,7 @@ class PoseSender(Node):
             data = {'pos': self.pos, 'imu': self.imu_data, 'battery': self.battery}
             self.sock.sendto(json.dumps(data).encode(), (self.host_ip, self.port))
         except Exception:
+            print("Error in lookup_transform")
             pass
 
 class CameraSender(Node):
