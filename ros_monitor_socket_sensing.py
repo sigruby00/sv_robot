@@ -320,10 +320,13 @@ def handover_ap(target_bssid):
             print(f"Warning: BSSID {target_bssid} not confirmed after roam.")
 
         # 네트워크 연결 확인 (고정 IP 환경)
-        for _ in range(5):
+        for _ in range(15):
             try:
                 subprocess.check_output(["ping", "-c", "1", "-W", "1", "10.243.76.1"], stderr=subprocess.DEVNULL)
                 print("Network connectivity confirmed after roam.")
+                # ping 성공 시점에 handover_done emit
+                if sio.connected:
+                    sio.emit('handover_done', {'robot_id': str(robot_id)})
                 break
             except subprocess.CalledProcessError:
                 print("Waiting for network availability...")
@@ -338,7 +341,6 @@ def handover_ap(target_bssid):
             print("[Handover] Immediate scan after handover.")
         except Exception as e:
             print(f"[Handover] Immediate scan error: {e}")
-
 
 
     except subprocess.CalledProcessError as e:
