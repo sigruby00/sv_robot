@@ -42,14 +42,30 @@ rssi_history = {}  # bssid: [rssi1, rssi2, ...]
 MOVING_AVG_N = 2  # moving average window 축소(더 빠른 반영)
 
 
+# handover_done emit을 안전하게 보장하는 함수
+
+def emit_handover_done_with_retry(max_retries=20, delay=0.5):
+    for i in range(max_retries):
+        if not sio.connected:
+            print(f"[handover_done] Not connected, trying reconnect... ({i+1})")
+            reconnect_socket()
+        try:
+            if sio.connected:
+                sio.emit('handover_done', {'robot_id': str(robot_id)})
+                print(f"[handover_done] emit success (try {i+1})")
+                return True
+        except Exception as e:
+            print(f"[handover_done] emit error: {e}")
+        time.sleep(delay)
+    print("[handover_done] emit failed after retries")
+    return False
+
 # Reconnect helper for socket.io
 def reconnect_socket():
     for i in range(20):
         try:
             if sio.connected:
-                # sio.disconnect()
                 print("✅ Already connected to server.")
-                sio.emit('handover_done', {'robot_id': str(robot_id)})
                 return
             sio.connect(SERVER_URL, auth={'robot_id': str(robot_id)})
             print("✅ Reconnected to server after handover.")
@@ -57,9 +73,6 @@ def reconnect_socket():
         except Exception as e:
             print(f"Reconnect attempt {i+1} failed: {e}")
             time.sleep(0.1)
-    # ping 성공 시점에 handover_done emit
-    if sio.connected:
-        sio.emit('handover_done', {'robot_id': str(robot_id)})
     print("❌ Failed to reconnect after handover.")
     return False
 
@@ -206,6 +219,7 @@ def sensing_loop():
         try:
             cur_bssid = get_current_bssid()
             cur_ap_id = get_ap_id_from_bssid(cur_bssid)
+            print(f"[DEBUG] cur_bssid: {cur_bssid}, cur_ap_id: {cur_ap_id}")
             rssi_map = get_rssi_map_from_scan_results()
             time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -234,11 +248,15 @@ def sensing_loop():
                 }
             }
 
-            if sio.connected:
+            # 모두 false면 emit하지 않음
+            all_disconnected = all(conn["connected"] == "false" for conn in sensing_data["data"]["connections"])
+            if all_disconnected:
+                print("⚠️ Skipped emit: All connections are false (disconnected)")
+            elif sio.connected:
                 sio.emit('robot_ss_data', sensing_data)
             else:
                 print("⚠️ Skipped emit: Socket.IO not connected")
-            time.sleep(2.0)
+            time.sleep(1.0)
         except Exception as e:
             print(f"Error in sensing loop: {e}")
             time.sleep(1)
@@ -312,26 +330,35 @@ def handover_ap(target_bssid):
         last_handover_time = time.time()
 
         # BSSID 전환 확인
+        bssid_confirmed = False
         for _ in range(15):
             bssid = get_current_bssid()
             if bssid and bssid == target_bssid:
                 print(f"Confirmed BSSID after roam: {bssid}")
+                bssid_confirmed = True
                 break
             print("Waiting for BSSID confirmation...")
             time.sleep(0.1)
-        else:
+        if not bssid_confirmed:
             print(f"Warning: BSSID {target_bssid} not confirmed after roam.")
 
-        # 네트워크 연결 확인 (고정 IP 환경)
+        # BSSID가 확인되지 않아도, 네트워크 연결 확인 및 emit 시도
+        ping_success = False
         for _ in range(15):
             try:
                 subprocess.check_output(["ping", "-c", "1", "-W", "1", "10.243.76.1"], stderr=subprocess.DEVNULL)
                 print("Network connectivity confirmed after roam.")
-
+                print("[handover_ap] ping success, trying to emit handover_done...")
+                emit_handover_done_with_retry()
+                print("[handover_ap] emit_handover_done_with_retry() called")
+                ping_success = True
                 break
             except subprocess.CalledProcessError:
                 print("Waiting for network availability...")
                 time.sleep(0.1)
+        if not ping_success:
+            print("[handover_ap] ping failed after 15 tries, forcing handover_done emit (network may be down)")
+            emit_handover_done_with_retry()
 
         # socket.io 강제 reconnect
         reconnect_socket_background()
