@@ -386,21 +386,11 @@ class LineFollowingNode(Node):
                                     self.mecanum_pub.publish(twist)
                                     self.pid.clear()
                                     return
-                                # 라인이 보이면 정상 PID 제어로 복귀(아래 코드에서 처리)
-                            # skip if decision is similar to last
                             if deflection_angle is not None and self.is_running and not self.stop:
-                                # 유사한 steering이면 publish skip
                                 decision = round(deflection_angle, 2)
-                                if last is not None and abs(decision - last) < 0.03:
-                                    # print(f"skip publish: {decision} - {last}")
+                                if last is not None and abs(decision - last) < 0.1:
                                     return
                                 self.last_decision = decision
-                                # now = self.get_clock().now()
-                                # if not hasattr(self, 'last_pub_time'):
-                                    # self.last_pub_time = now
-                                # if (now - self.last_pub_time).nanoseconds < 1e8: #limit publish rate
-                                    # return
-                                # self.last_pub_time = now
                                 self.pid.update(deflection_angle)
                                 if self.machine_type == 'MentorPi_Acker':
                                     steering_angle = common.set_range(-self.pid.output, -math.radians(322/2000*180), math.radians(322/2000*180))
@@ -409,14 +399,20 @@ class LineFollowingNode(Node):
                                         twist.angular.z = twist.linear.x/R
                                 else:
                                     twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
-                                if self.is_running:  # navigation start 상태에서만 publish
+                                if self.is_running:
                                     self.mecanum_pub.publish(twist)
                             elif self.stop:
                                 if self.is_running:
                                     self.mecanum_pub.publish(Twist())
                             else:
-                                # stop에서 해제된 직후, 라인이 안 보이면(위에서 처리), 그 외에는 PID clear만
                                 self.pid.clear()
+                        except Exception as e:
+                            self.get_logger().error(f"[IMAGE] Inner Exception: {str(e)}")
+                            try:
+                                self.mecanum_pub.publish(Twist())
+                                self.get_logger().warn("[IMAGE] Inner Exception, forced STOP.")
+                            except Exception as ee:
+                                self.get_logger().error(f"[IMAGE] Publish Exception: {str(ee)}")
         except Exception as e:
             self.get_logger().error(f"[IMAGE] Outer Exception: {str(e)}")
             try:

@@ -39,7 +39,7 @@ handover_stop_event = threading.Event()
 #
 # RSSI moving average 저장용
 rssi_history = {}  # bssid: [rssi1, rssi2, ...]
-MOVING_AVG_N = 2  # moving average window 축소(더 빠른 반영)
+MOVING_AVG_N = 4
 
 
 # Reconnect helper for socket.io
@@ -327,13 +327,6 @@ def handover_ap(target_bssid):
                 print("Waiting for network availability...")
                 time.sleep(0.5)
 
-        # handover 후 scan 즉시 실행 (RSSI 최신화)
-        try:
-            subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
-            print("[Handover] Immediate scan after handover.")
-        except Exception as e:
-            print(f"[Handover] Immediate scan error: {e}")
-
         # socket.io 강제 reconnect
         reconnect_socket_background()
 
@@ -346,19 +339,19 @@ def scan_loop():
     global last_handover_time
     while True:
         if time.time() - last_handover_time < 3:
-            time.sleep(0.5)
+            time.sleep(1)
             continue
         if scan_lock.acquire(blocking=False):
             try:
                 # print("[SCAN] Starting scan")
                 subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
-                time.sleep(1.0)  # scan 후 대기시간 단축
+                time.sleep(2.0)
             except subprocess.CalledProcessError as e:
                 print(f"Scan error: {e}")
             finally:
                 scan_lock.release()
                 # print("[SCAN] Scan complete")
-        time.sleep(0.5)
+        time.sleep(1.0)
 
 # SERVER_URL = 'https://0cd8b22324dc.ngrok.app'
 # SERVER_URL_RTP = 'https://ccf9aec2f845.ngrok.app:5002'

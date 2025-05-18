@@ -132,49 +132,33 @@ class CameraSender(Node):
         self.camera_frame = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.host_ip, self.port = '10.243.76.27', 9001
-
+        self.frame_size = 30720  # 30KB 고정
         self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
-        # self.create_timer(0.2, self.send_image)  # reduced to 5Hz
+        self.create_timer(0.05, self.send_latest_image)  # 20Hz
 
     def camera_callback(self, msg):
         try:
             img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
             img = cv2.resize(img, (320, 240))
-            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 100])
-            self.send_image(jpeg.tobytes())  # frame 새로 들어올 때마다 바로 전송
+            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 65])
+            self.camera_frame = jpeg.tobytes()
         except Exception:
             pass
 
-    def send_image(self, jpeg_bytes):
-        rid = int(robot_id).to_bytes(2, 'big')
-        payload = rid + jpeg_bytes
-        if len(payload) < 30720:
-            payload += b'\x00' * (30720 - len(payload))
-        try:
-            self.sock.sendto(payload, (self.host_ip, self.port))
-        except Exception:
-            pass
-
-    # def camera_callback(self, msg):
-    #     try:
-    #         img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-    #         img = cv2.resize(img, (320, 240))
-    #         _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 50])
-    #         self.camera_frame = jpeg.tobytes()
-    #     except Exception:
-    #         pass
-
-    # def send_image(self):
-    #     if not self.camera_frame:
-    #         return
-    #     rid = int(robot_id).to_bytes(2, 'big')
-    #     payload = rid + self.camera_frame
-    #     if len(payload) < 30720:
-    #         payload += b'\x00' * (30720 - len(payload))
-    #     try:
-    #         self.sock.sendto(payload, (self.host_ip, self.port))
-    #     except Exception:
-    #         pass
+    def send_latest_image(self):
+        if self.camera_frame:
+            rid = int(robot_id).to_bytes(2, 'big')
+            jpeg_bytes = self.camera_frame
+            # 항상 고정 크기로 전송
+            if len(jpeg_bytes) > self.frame_size - 2:
+                jpeg_bytes = jpeg_bytes[:self.frame_size - 2]  # robot_id 2바이트 포함
+            payload = rid + jpeg_bytes
+            if len(payload) < self.frame_size:
+                payload += b'\x00' * (self.frame_size - len(payload))
+            try:
+                self.sock.sendto(payload, (self.host_ip, self.port))
+            except Exception:
+                pass
 
 from line_following import LineFollowingNode
 
