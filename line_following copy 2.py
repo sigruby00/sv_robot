@@ -350,7 +350,7 @@ class LineFollowingNode(Node):
                 else:
                     last = None
                 decision = None
-                # lidar stop 해제 후 라인이 안 보이거나(아래 else), 라인이 보이더라도 skip publish 조건이어도 반드시 탐색 동작 수행
+                # lidar stop 해제 후 라인이 안 보이면 천천히 직진
                 stop_changed = False
                 if hasattr(self, 'last_stop'):
                     if self.last_stop and not self.stop:
@@ -372,21 +372,15 @@ class LineFollowingNode(Node):
                     if self.follower is not None:
                         try:
                             result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
-                            # stop에서 해제된 직후, 라인이 안 보이거나(아래 else), 라인이 보이더라도 skip publish 조건이어도 반드시 탐색 동작 수행
+                            # stop에서 해제된 직후, 라인이 안 보이거나(아래 else), 라인이 보이더라도 skip publish 조건이어도 반드시 천천히 직진 publish
                             if stop_changed and self.is_running:
-                                # 라인이 안 보이면 좌우로 고개를 흔들며 탐색
-                                if deflection_angle is None:
-                                    if not hasattr(self, '_search_dir'):
-                                        self._search_dir = 1
-                                    self._search_dir *= -1  # 좌우 번갈아가며
-                                    twist = Twist()
-                                    twist.linear.x = 0.0
-                                    twist.angular.z = 0.5 * self._search_dir  # 좌우로 고개 흔들기
-                                    self.get_logger().info("[LIDAR] 장애물 해제, 라인 미탐지: 좌우 탐색")
-                                    self.mecanum_pub.publish(twist)
-                                    self.pid.clear()
-                                    return
-                                # 라인이 보이면 정상 PID 제어로 복귀(아래 코드에서 처리)
+                                twist = Twist()
+                                twist.linear.x = 0.08  # 느리게 직진
+                                twist.angular.z = 0.0
+                                self.get_logger().info("[LIDAR] 장애물 해제, 라인 미탐지 또는 skip 상태: 천천히 직진")
+                                self.mecanum_pub.publish(twist)
+                                self.pid.clear()
+                                return
                             # skip if decision is similar to last
                             if deflection_angle is not None and self.is_running and not self.stop:
                                 # 유사한 steering이면 publish skip
@@ -409,14 +403,20 @@ class LineFollowingNode(Node):
                                         twist.angular.z = twist.linear.x/R
                                 else:
                                     twist.angular.z = common.set_range(-self.pid.output, -1.0, 1.0)
-                                if self.is_running:  # navigation start 상태에서만 publish
-                                    self.mecanum_pub.publish(twist)
+                                self.mecanum_pub.publish(twist)
                             elif self.stop:
-                                if self.is_running:
-                                    self.mecanum_pub.publish(Twist())
+                                self.mecanum_pub.publish(Twist())
                             else:
-                                # stop에서 해제된 직후, 라인이 안 보이면(위에서 처리), 그 외에는 PID clear만
+                                # stop에서 해제된 직후, 라인이 안 보이면 천천히 직진
+                                if stop_changed and self.is_running:
+                                    twist = Twist()
+                                    twist.linear.x = 0.08  # 느리게 직진
+                                    twist.angular.z = 0.0
+                                    self.get_logger().info("[LIDAR] 장애물 해제, 라인 미탐지: 천천히 직진")
+                                    self.mecanum_pub.publish(twist)
                                 self.pid.clear()
+                        except Exception as e:
+                            self.mecanum_pub.publish(Twist())
         except Exception as e:
             self.get_logger().error(f"[IMAGE] Outer Exception: {str(e)}")
             try:
