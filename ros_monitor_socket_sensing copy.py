@@ -298,24 +298,6 @@ def lock_bssid(bssid):
     except subprocess.CalledProcessError as e:
         print(f"[LOCK] Failed to lock BSSID or disable bgscan: {e}")
 
-def reconnect_socket_with_retries(max_retries=5, delay=2):
-    """
-    AP 변경 후 socket.io 연결을 복구하는 함수.
-    """
-    for attempt in range(max_retries):
-        try:
-            if sio.connected:
-                sio.disconnect()
-            time.sleep(0.5)
-            sio.connect(SERVER_URL, auth={'robot_id': str(robot_id)})
-            print("✅ Reconnected to server after handover.")
-            return True
-        except Exception as e:
-            print(f"Reconnect attempt {attempt + 1} failed: {e}")
-            time.sleep(delay)
-    print("❌ Failed to reconnect after handover.")
-    return False
-
 def handover_ap(target_bssid):
     global last_handover_time
     try:
@@ -346,7 +328,7 @@ def handover_ap(target_bssid):
                 time.sleep(0.5)
 
         # socket.io 강제 reconnect
-        reconnect_socket_with_retries()
+        reconnect_socket_background()
 
     except subprocess.CalledProcessError as e:
         print(f"Error during handover: {e}")
