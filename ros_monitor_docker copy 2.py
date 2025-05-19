@@ -15,7 +15,6 @@ import threading
 import select
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
-import psutil
 
 sys.path.append(os.path.dirname(__file__))
 from robot_config.robot_config_id import ROBOT_ID
@@ -145,7 +144,6 @@ class CameraSender(Node):
         self.bridge = CvBridge()
         self.camera_frame = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)  # 1MB로 확장
         self.host_ip, self.port = '10.243.76.27', 9001
         self.frame_size = 30720  # 30KB 고정
         self.image_sub = None
@@ -154,11 +152,10 @@ class CameraSender(Node):
 
     def start_streaming(self):
         if not self.streaming:
-            self.image_sub = self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 1)  # queue_size=1로 변경
-            self.timer = self.create_timer(0.1, self.send_latest_image)  # 10Hz로 낮춤
+            self.image_sub = self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
+            self.timer = self.create_timer(0.05, self.send_latest_image)  # 20Hz
             self.streaming = True
             print("[CameraSender] Streaming started.")
-            print(f"[CameraSender] Memory usage: {psutil.Process(os.getpid()).memory_info().rss/1024/1024:.2f} MB")
 
     def stop_streaming(self):
         if self.streaming:
@@ -168,10 +165,8 @@ class CameraSender(Node):
             if self.timer:
                 self.destroy_timer(self.timer)
                 self.timer = None
-            self.camera_frame = None  # 이미지 참조 해제
             self.streaming = False
             print("[CameraSender] Streaming stopped.")
-            print(f"[CameraSender] Memory usage: {psutil.Process(os.getpid()).memory_info().rss/1024/1024:.2f} MB")
 
     def camera_callback(self, msg):
         try:
