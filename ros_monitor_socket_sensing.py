@@ -39,40 +39,22 @@ handover_stop_event = threading.Event()
 #
 # RSSI moving average 저장용
 rssi_history = {}  # bssid: [rssi1, rssi2, ...]
-MOVING_AVG_N = 2  # moving average window 축소(더 빠른 반영)
+MOVING_AVG_N = 4
 
-
-# handover_done emit을 안전하게 보장하는 함수
-
-def emit_handover_done_with_retry(max_retries=20, delay=0.5):
-    for i in range(max_retries):
-        if not sio.connected:
-            print(f"[handover_done] Not connected, trying reconnect... ({i+1})")
-            reconnect_socket()
-        try:
-            if sio.connected:
-                sio.emit('handover_done', {'robot_id': str(robot_id)})
-                print(f"[handover_done] emit success (try {i+1})")
-                return True
-        except Exception as e:
-            print(f"[handover_done] emit error: {e}")
-        time.sleep(delay)
-    print("[handover_done] emit failed after retries")
-    return False
 
 # Reconnect helper for socket.io
 def reconnect_socket():
-    for i in range(20):
+    for i in range(5):
         try:
             if sio.connected:
-                print("✅ Already connected to server.")
-                return
+                sio.disconnect()
+            time.sleep(0.5)
             sio.connect(SERVER_URL, auth={'robot_id': str(robot_id)})
             print("✅ Reconnected to server after handover.")
             return True
         except Exception as e:
             print(f"Reconnect attempt {i+1} failed: {e}")
-            time.sleep(0.1)
+            time.sleep(2)
     print("❌ Failed to reconnect after handover.")
     return False
 
@@ -99,17 +81,6 @@ def navigation(data):
         docker_ip = '172.17.0.1'
         docker_port = 9002
         msg = json.dumps({'navigation': data}).encode()
-        sock.sendto(msg, (docker_ip, docker_port))
-        print('action', data.get('action'))
-
-@sio.event
-def streaming(data):
-    print(f"Received streaming data: {data}")
-    if data.get('robot_id') == str(robot_id):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        docker_ip = '172.17.0.1'
-        docker_port = 9002
-        msg = json.dumps({'streaming': data}).encode()
         sock.sendto(msg, (docker_ip, docker_port))
         print('action', data.get('action'))
 
@@ -230,7 +201,6 @@ def sensing_loop():
         try:
             cur_bssid = get_current_bssid()
             cur_ap_id = get_ap_id_from_bssid(cur_bssid)
-            print(f"[DEBUG] cur_bssid: {cur_bssid}, cur_ap_id: {cur_ap_id}")
             rssi_map = get_rssi_map_from_scan_results()
             time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -259,15 +229,11 @@ def sensing_loop():
                 }
             }
 
-            # 모두 false면 emit하지 않음
-            all_disconnected = all(conn["connected"] == "false" for conn in sensing_data["data"]["connections"])
-            if all_disconnected:
-                print("⚠️ Skipped emit: All connections are false (disconnected)")
-            elif sio.connected:
+            if sio.connected:
                 sio.emit('robot_ss_data', sensing_data)
             else:
                 print("⚠️ Skipped emit: Socket.IO not connected")
-            time.sleep(1.0)
+            time.sleep(2.0)
         except Exception as e:
             print(f"Error in sensing loop: {e}")
             time.sleep(1)
@@ -341,46 +307,28 @@ def handover_ap(target_bssid):
         last_handover_time = time.time()
 
         # BSSID 전환 확인
-        bssid_confirmed = False
-        for _ in range(15):
+        for _ in range(10):
             bssid = get_current_bssid()
             if bssid and bssid == target_bssid:
                 print(f"Confirmed BSSID after roam: {bssid}")
-                bssid_confirmed = True
                 break
             print("Waiting for BSSID confirmation...")
-            time.sleep(0.1)
-        if not bssid_confirmed:
+            time.sleep(0.5)
+        else:
             print(f"Warning: BSSID {target_bssid} not confirmed after roam.")
 
-        # BSSID가 확인되지 않아도, 네트워크 연결 확인 및 emit 시도
-        ping_success = False
-        for _ in range(15):
+        # 네트워크 연결 확인 (고정 IP 환경)
+        for _ in range(5):
             try:
                 subprocess.check_output(["ping", "-c", "1", "-W", "1", "10.243.76.1"], stderr=subprocess.DEVNULL)
                 print("Network connectivity confirmed after roam.")
-                print("[handover_ap] ping success, trying to emit handover_done...")
-                emit_handover_done_with_retry()
-                print("[handover_ap] emit_handover_done_with_retry() called")
-                ping_success = True
                 break
             except subprocess.CalledProcessError:
                 print("Waiting for network availability...")
-                time.sleep(0.1)
-        if not ping_success:
-            print("[handover_ap] ping failed after 15 tries, forcing handover_done emit (network may be down)")
-            emit_handover_done_with_retry()
+                time.sleep(0.5)
 
         # socket.io 강제 reconnect
         reconnect_socket_background()
-
-        # handover 후 scan 즉시 실행 (RSSI 최신화)
-        try:
-            subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
-            print("[Handover] Immediate scan after handover.")
-        except Exception as e:
-            print(f"[Handover] Immediate scan error: {e}")
-
 
     except subprocess.CalledProcessError as e:
         print(f"Error during handover: {e}")
@@ -391,19 +339,19 @@ def scan_loop():
     global last_handover_time
     while True:
         if time.time() - last_handover_time < 3:
-            time.sleep(0.5)
+            time.sleep(1)
             continue
         if scan_lock.acquire(blocking=False):
             try:
                 # print("[SCAN] Starting scan")
                 subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
-                time.sleep(1.0)  # scan 후 대기시간 단축
+                time.sleep(2.0)
             except subprocess.CalledProcessError as e:
                 print(f"Scan error: {e}")
             finally:
                 scan_lock.release()
                 # print("[SCAN] Scan complete")
-        time.sleep(0.5)
+        time.sleep(1.0)
 
 # SERVER_URL = 'https://0cd8b22324dc.ngrok.app'
 # SERVER_URL_RTP = 'https://ccf9aec2f845.ngrok.app:5002'

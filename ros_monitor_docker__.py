@@ -15,6 +15,7 @@ import threading
 import select
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+import psutil
 
 sys.path.append(os.path.dirname(__file__))
 from robot_config.robot_config_id import ROBOT_ID
@@ -144,6 +145,8 @@ class CameraSender(Node):
         self.bridge = CvBridge()
         self.camera_frame = None
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)  # 1MB로 확장
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 8388608)  # 1MB로 확장
         self.host_ip, self.port = '10.243.76.27', 9001
         self.frame_size = 30720  # 30KB 고정
         self.image_sub = None
@@ -152,10 +155,15 @@ class CameraSender(Node):
 
     def start_streaming(self):
         if not self.streaming:
-            self.image_sub = self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
-            self.timer = self.create_timer(0.05, self.send_latest_image)  # 20Hz
+            self.image_sub = self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 1)  # queue_size=1로 변경
+            # self.timer = self.create_timer(0.1, self.send_latest_image)  # 10Hz로 낮춤
+            # 25Hz로 변경
+            self.timer = self.create_timer(0.04, self.send_latest_image)  # 25Hz로 변경
+            # 30Hz로 변경
+            # self.timer = self.create_timer(0.033, self.send_latest_image)
             self.streaming = True
             print("[CameraSender] Streaming started.")
+            print(f"[CameraSender] Memory usage: {psutil.Process(os.getpid()).memory_info().rss/1024/1024:.2f} MB")
 
     def stop_streaming(self):
         if self.streaming:
@@ -165,31 +173,41 @@ class CameraSender(Node):
             if self.timer:
                 self.destroy_timer(self.timer)
                 self.timer = None
+            self.camera_frame = None  # 이미지 참조 해제
             self.streaming = False
             print("[CameraSender] Streaming stopped.")
+            print(f"[CameraSender] Memory usage: {psutil.Process(os.getpid()).memory_info().rss/1024/1024:.2f} MB")
 
     def camera_callback(self, msg):
         try:
             img = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            # img = cv2.resize(img, (640, 480))
             img = cv2.resize(img, (320, 240))
-            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 65])
+            # image 크기 낮추기
+            # img = cv2.resize(img, (160, 120))
+            _, jpeg = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])
             self.camera_frame = jpeg.tobytes()
         except Exception:
             pass
 
     def send_latest_image(self):
         if self.camera_frame:
+            now = time.time()
+            delay = now - getattr(self, 'last_frame_time', now)
+            self.last_frame_time = now
+
+            self.prev_timer_time = now
+
             rid = int(robot_id).to_bytes(2, 'big')
             jpeg_bytes = self.camera_frame
             if len(jpeg_bytes) > self.frame_size - 2:
                 jpeg_bytes = jpeg_bytes[:self.frame_size - 2]
             payload = rid + jpeg_bytes
-            if len(payload) < self.frame_size:
-                payload += b'\x00' * (self.frame_size - len(payload))
+
             try:
                 self.sock.sendto(payload, (self.host_ip, self.port))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[CameraSender] Error sending frame: {e}")
 
 from line_following import LineFollowingNode
 
