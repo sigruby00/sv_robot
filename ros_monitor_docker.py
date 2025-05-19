@@ -70,13 +70,13 @@ class CommandReceiver(Node):
                         self.get_logger().info(f"Received command: {action}")
                         twist = Twist()
                         if action == 'move_forward':
-                            twist.linear.x = 0.5
+                            twist.linear.x = 0.2
                         elif action == 'move_backward':
-                            twist.linear.x = -0.5
+                            twist.linear.x = -0.2
                         elif action == 'turn_left':
-                            twist.angular.z = 1.5
+                            twist.angular.z = 0.8
                         elif action == 'turn_right':
-                            twist.angular.z = -1.5
+                            twist.angular.z = -0.8
                         elif action == 'stop':
                             twist.linear.x = 0.0
                             twist.angular.z = 0.0
