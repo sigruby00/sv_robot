@@ -36,11 +36,12 @@ def run_command(cmd, wait=True):
         return p
 
 class CommandReceiver(Node):
-    def __init__(self):
+    def __init__(self, camera_sender):
         super().__init__('command_receiver')
         self.cmd_vel_pub = self.create_publisher(Twist, '/controller/cmd_vel', 10)
         self.cmd_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.cmd_sock.bind(('0.0.0.0', 9002))
+        self.camera_sender = camera_sender
         threading.Thread(target=self.receive_command_loop, daemon=True).start()
 
     def receive_command_loop(self):
@@ -62,13 +63,13 @@ class CommandReceiver(Node):
 
                     run_command(command, wait=False)
 
-                stream = comman.get('streaming')
+                stream = command.get('streaming')
                 if stream is not None:
-                    action_value = str(stream['action'])
-                    if (stream == 'start'):
-                        is_streaming = True
+                    action_value = str(stream['status'])
+                    if (action_value == 'start'):
+                        self.camera_sender.start_streaming()
                     else:
-                        is_streaming = False
+                        self.camera_sender.stop_streaming()
 
 
                 # manual actions
@@ -145,8 +146,27 @@ class CameraSender(Node):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.host_ip, self.port = '10.243.76.27', 9001
         self.frame_size = 30720  # 30KB 고정
-        self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
-        self.create_timer(0.05, self.send_latest_image)  # 20Hz
+        self.image_sub = None
+        self.timer = None
+        self.streaming = False
+
+    def start_streaming(self):
+        if not self.streaming:
+            self.image_sub = self.create_subscription(Image, '/ascamera/camera_publisher/rgb0/image', self.camera_callback, 10)
+            self.timer = self.create_timer(0.05, self.send_latest_image)  # 20Hz
+            self.streaming = True
+            print("[CameraSender] Streaming started.")
+
+    def stop_streaming(self):
+        if self.streaming:
+            if self.image_sub:
+                self.destroy_subscription(self.image_sub)
+                self.image_sub = None
+            if self.timer:
+                self.destroy_timer(self.timer)
+                self.timer = None
+            self.streaming = False
+            print("[CameraSender] Streaming stopped.")
 
     def camera_callback(self, msg):
         try:
@@ -158,26 +178,25 @@ class CameraSender(Node):
             pass
 
     def send_latest_image(self):
-        if is_streaming == True:
-            if self.camera_frame:
-                rid = int(robot_id).to_bytes(2, 'big')
-                jpeg_bytes = self.camera_frame
-                # 항상 고정 크기로 전송
-                if len(jpeg_bytes) > self.frame_size - 2:
-                    jpeg_bytes = jpeg_bytes[:self.frame_size - 2]  # robot_id 2바이트 포함
-                payload = rid + jpeg_bytes
-                if len(payload) < self.frame_size:
-                    payload += b'\x00' * (self.frame_size - len(payload))
-                try:
-                    self.sock.sendto(payload, (self.host_ip, self.port))
-                except Exception:
-                    pass
+        if self.camera_frame:
+            rid = int(robot_id).to_bytes(2, 'big')
+            jpeg_bytes = self.camera_frame
+            if len(jpeg_bytes) > self.frame_size - 2:
+                jpeg_bytes = jpeg_bytes[:self.frame_size - 2]
+            payload = rid + jpeg_bytes
+            if len(payload) < self.frame_size:
+                payload += b'\x00' * (self.frame_size - len(payload))
+            try:
+                self.sock.sendto(payload, (self.host_ip, self.port))
+            except Exception:
+                pass
 
 from line_following import LineFollowingNode
 
 def main():
     rclpy.init()
-    nodes = [PoseSender(), CameraSender(), CommandReceiver(), LineFollowingNode('line_following')]
+    camera_sender = CameraSender()
+    nodes = [PoseSender(), camera_sender, CommandReceiver(camera_sender), LineFollowingNode('line_following')]
     executor = rclpy.executors.MultiThreadedExecutor()
     for n in nodes:
         executor.add_node(n)
