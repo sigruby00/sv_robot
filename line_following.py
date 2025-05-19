@@ -377,7 +377,7 @@ class LineFollowingNode(Node):
                         self.get_logger().error(f"[IMAGE] ColorPicker Exception: {str(e)}")
                 else:
                     twist = Twist()
-                    twist.linear.x = 0.15
+                    twist.linear.x = 0.2
                     if self.follower is not None:
                         try:
                             result_image, deflection_angle = self.follower(rgb_image, result_image, self.threshold)
@@ -397,7 +397,7 @@ class LineFollowingNode(Node):
                                     return
                             if deflection_angle is not None and self.is_running and not self.stop:
                                 decision = round(deflection_angle, 2)
-                                if last is not None and abs(decision - last) < 0.05:
+                                if last is not None and abs(decision - last) < 0.1:
                                     return
                                 self.last_decision = decision
                                 self.pid.update(deflection_angle)
