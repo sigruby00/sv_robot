@@ -129,8 +129,12 @@ class PoseSender(Node):
 
     def lookup_transform(self):
         try:
-            # current_time = self.get_clock().now() - rclpy.duration.Duration(seconds=0.1)
-            # transform = self.tf_buffer.lookup_transform('map', 'base_link', current_time)
+            # 변환 가능 여부 확인 (최대 5초 대기)
+            if not self.tf_buffer.can_transform('map', 'base_link', rclpy.time.Time(), timeout=rclpy.duration.Duration(seconds=5.0)):
+                self.get_logger().warn("Transform from 'map' to 'base_link' is not available yet.")
+                return
+
+            # 변환 데이터 가져오기
             transform = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
 
             if not self.imu_data or \
