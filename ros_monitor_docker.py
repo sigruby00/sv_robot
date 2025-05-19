@@ -65,7 +65,7 @@ class CommandReceiver(Node):
                 stream = comman.get('streaming')
                 if stream is not None:
                     action_value = str(stream['action'])
-                    if (stream == 'start')
+                    if (stream == 'start'):
                         is_streaming = True
                     else:
                         is_streaming = False
