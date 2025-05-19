@@ -201,11 +201,11 @@ class CameraSender(Node):
     def camera_callback(self, msg):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-            # cv_image = cv2.resize(cv_image, (320, 240))  # 예: 320x240으로 축소
-            cv_image = cv2.resize(cv_image, (160, 120))  # 예: 320x240으로 축소
+            cv_image = cv2.resize(cv_image, (320, 240))  # 예: 320x240으로 축소
+            # cv_image = cv2.resize(cv_image, (160, 120))  # 예: 320x240으로 축소
 
             # Set JPEG encoding quality to 95 to reduce compression variability
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 60]
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
             _, jpeg = cv2.imencode('.jpg', cv_image, encode_param)
             # _, jpeg = cv2.imencode('.jpg', cv_image)  # original line removed/commented
             # with encoding

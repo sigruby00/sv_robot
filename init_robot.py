@@ -79,13 +79,13 @@ def main():
 
         # Start map server
         run_command("ros2 run nav2_map_server map_server --ros-args -p yaml_filename:=/home/ubuntu/shared/sv_robot/map_info/lab_test.yaml", wait=False)
-        time.sleep(5)
+        time.sleep(10)
 
         # Configure and activate map_server lifecycle
         run_command("ros2 lifecycle set /map_server configure")
-        time.sleep(3)
+        time.sleep(10)
         run_command("ros2 lifecycle set /map_server activate")
-        time.sleep(3)
+        time.sleep(5)
 
         import math
         def quaternion_to_yaw(z, w):
