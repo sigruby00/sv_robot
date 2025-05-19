@@ -102,6 +102,17 @@ def navigation(data):
         sock.sendto(msg, (docker_ip, docker_port))
         print('action', data.get('action'))
 
+@sio.event
+def streaming(data):
+    print(f"Received streaming data: {data}")
+    if data.get('robot_id') == str(robot_id):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        docker_ip = '172.17.0.1'
+        docker_port = 9002
+        msg = json.dumps({'streaming': data}).encode()
+        sock.sendto(msg, (docker_ip, docker_port))
+        print('action', data.get('action'))
+
 
 @sio.event
 def command(data):

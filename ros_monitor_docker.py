@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(__file__))
 from robot_config.robot_config_id import ROBOT_ID
 
 robot_id = ROBOT_ID
+is_streaming = False
 
 # Improved run_command to prevent zombie processes
 def run_command(cmd, wait=True):
@@ -60,6 +61,14 @@ class CommandReceiver(Node):
                     print(f"Command: {command}")
 
                     run_command(command, wait=False)
+
+                stream = comman.get('streaming')
+                if stream is not None:
+                    action_value = str(stream['action'])
+                    if (stream == 'start')
+                        is_streaming = True
+                    else:
+                        is_streaming = False
 
 
                 # manual actions
@@ -149,19 +158,20 @@ class CameraSender(Node):
             pass
 
     def send_latest_image(self):
-        if self.camera_frame:
-            rid = int(robot_id).to_bytes(2, 'big')
-            jpeg_bytes = self.camera_frame
-            # 항상 고정 크기로 전송
-            if len(jpeg_bytes) > self.frame_size - 2:
-                jpeg_bytes = jpeg_bytes[:self.frame_size - 2]  # robot_id 2바이트 포함
-            payload = rid + jpeg_bytes
-            if len(payload) < self.frame_size:
-                payload += b'\x00' * (self.frame_size - len(payload))
-            try:
-                self.sock.sendto(payload, (self.host_ip, self.port))
-            except Exception:
-                pass
+        if is_streaming == True:
+            if self.camera_frame:
+                rid = int(robot_id).to_bytes(2, 'big')
+                jpeg_bytes = self.camera_frame
+                # 항상 고정 크기로 전송
+                if len(jpeg_bytes) > self.frame_size - 2:
+                    jpeg_bytes = jpeg_bytes[:self.frame_size - 2]  # robot_id 2바이트 포함
+                payload = rid + jpeg_bytes
+                if len(payload) < self.frame_size:
+                    payload += b'\x00' * (self.frame_size - len(payload))
+                try:
+                    self.sock.sendto(payload, (self.host_ip, self.port))
+                except Exception:
+                    pass
 
 from line_following import LineFollowingNode
 
