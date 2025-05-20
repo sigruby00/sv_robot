@@ -362,7 +362,9 @@ def scan_loop():
         if scan_lock.acquire(blocking=False):
             try:
                 # print("[SCAN] Starting scan")
-                subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
+                # subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
+                # subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180"], check=True)
+                subprocess.run(["sudo", "wpa_cli", "scan", "freq", "5180", "5190", "5200", "5210", "5220"], check=True)
                 time.sleep(2.0)
             except subprocess.CalledProcessError as e:
                 print(f"Scan error: {e}")
