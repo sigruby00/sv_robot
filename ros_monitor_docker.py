@@ -57,13 +57,14 @@ class CommandReceiver(Node):
                     data, _ = self.cmd_sock.recvfrom(1024)
                     command = json.loads(data.decode())
 
-                    if command.get('navigation') is not None:
-                        data = command.get('navigation')
-                        if data.get('action') == True:
-                            print("navigation start")
-                            run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: True}'", wait=False)
-                        elif data.get('action') == False:
-                            run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: False}'", wait=False)
+                    if robot_id < 13:
+                        if command.get('navigation') is not None:
+                            data = command.get('navigation')
+                            if data.get('action') == True:
+                                print("navigation start")
+                                run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: True}'", wait=False)
+                            elif data.get('action') == False:
+                                run_command("ros2 service call /line_following/set_running std_srvs/srv/SetBool '{data: False}'", wait=False)
 
                     if command.get('action') is not None:
                         action = command.get('action')
@@ -307,7 +308,8 @@ def main():
     executor.add_node(pose_node)
     executor.add_node(camera_node)
     executor.add_node(cmd_node)
-    executor.add_node(line_node)
+    if robot_id < 13:
+        executor.add_node(line_node)
 
     # spin 전에 서비스 호출 넣으면 의미 없음
     # 대신 스레드로 spin 이후에 호출되도록 한다
