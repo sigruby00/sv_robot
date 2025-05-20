@@ -158,6 +158,7 @@ def handover_method(data):
             # 기존 스레드 이미 종료됨
     elif status == 'off':
         if handover_mode == mode:
+            print(f"Stopping handover mode: {mode}")
             if handover_thread and handover_thread.is_alive():
                 handover_stop_event.set()
                 handover_thread.join()
@@ -167,19 +168,52 @@ def handover_method(data):
 # RSSI 기반 handover 루프
 THRESHOLD_RSSI = -60  # Random용 threshold, 필요시 조정
 
+# def handover_rssi_loop(stop_event):
+#     while not stop_event.is_set():
+#         rssi_map = get_rssi_map_from_scan_results()
+#         # HSLSV만 필터링
+#         candidates = [(bssid, rssi) for bssid, rssi in rssi_map.items() if any(ap['bssid'].lower() == bssid for ap in AP_INFO.values())]
+#         if candidates:
+#             # moving average 값으로 handover 판단
+#             best_bssid, best_rssi = max(candidates, key=lambda x: x[1])
+#             cur_bssid = get_current_bssid()
+#             if best_bssid != cur_bssid:
+#                 print(f"[RSSI] Roaming to best BSSID: {best_bssid} (RSSI: {best_rssi})")
+#                 handover_ap(best_bssid)
+#         stop_event.wait(10)
+
 def handover_rssi_loop(stop_event):
     while not stop_event.is_set():
         rssi_map = get_rssi_map_from_scan_results()
-        # HSLSV만 필터링
-        candidates = [(bssid, rssi) for bssid, rssi in rssi_map.items() if any(ap['bssid'].lower() == bssid for ap in AP_INFO.values())]
+        candidates = [
+            (bssid, rssi) for bssid, rssi in rssi_map.items()
+            if any(ap['bssid'].lower() == bssid for ap in AP_INFO.values())
+        ]
         if candidates:
-            # moving average 값으로 handover 판단
             best_bssid, best_rssi = max(candidates, key=lambda x: x[1])
             cur_bssid = get_current_bssid()
             if best_bssid != cur_bssid:
                 print(f"[RSSI] Roaming to best BSSID: {best_bssid} (RSSI: {best_rssi})")
                 handover_ap(best_bssid)
-        stop_event.wait(10)
+
+        for _ in range(10):  # 총 10초 대기 (1초씩 확인)
+            if stop_event.is_set():
+                return
+            time.sleep(1)
+
+# def handover_random_loop(stop_event):
+#     while not stop_event.is_set():
+#         rssi_map = get_rssi_map_from_scan_results()
+#         # threshold 이상, HSLSV만 필터링
+#         candidates = [bssid for bssid, rssi in rssi_map.items() if rssi > THRESHOLD_RSSI and any(ap['bssid'].lower() == bssid for ap in AP_INFO.values())]
+#         if candidates:
+#             import random
+#             target_bssid = random.choice(candidates)
+#             cur_bssid = get_current_bssid()
+#             if target_bssid != cur_bssid:
+#                 print(f"[Random] Roaming to random BSSID: {target_bssid}")
+#                 handover_ap(target_bssid)
+#         stop_event.wait(10)
 
 def handover_random_loop(stop_event):
     while not stop_event.is_set():
@@ -193,7 +227,11 @@ def handover_random_loop(stop_event):
             if target_bssid != cur_bssid:
                 print(f"[Random] Roaming to random BSSID: {target_bssid}")
                 handover_ap(target_bssid)
-        stop_event.wait(10)
+
+        for _ in range(10):  # 총 10초 대기 (1초씩 확인)
+            if stop_event.is_set():
+                return
+            time.sleep(1)
 
 # Measure RTT and Jitter
 @sio.event
@@ -235,7 +273,7 @@ def sensing_loop():
                 }
             }
 
-            print('robot_ss_data', json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}))
+            # print('robot_ss_data', json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}))
 
             udp_sock.sendto(json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}).encode(), (udp_host, udp_port))
 
@@ -437,21 +475,21 @@ def main():
                 speed_linear = linear_speed if linear_speed is not None else 0.0
                 speed_angular = angular_speed if angular_speed is not None else 0.0
 
-                print(json.dumps({'type': 'robot_rt_data', 'robot_id': robot_id, 'payload': {
-                    'robot_id': robot_id,
-                    'pos': {
-                        'x': x + 0.1,
-                        'y': y,
-                        'yaw': yaw + 0.1
-                    },
-                    'battery': battery,
-                    'imu': {
-                        'linear_acceleration': linear_acc,
-                        'angular_velocity': angular_vel,
-                        'linear_speed': linear_speed,
-                        'angular_speed': angular_speed
-                    }
-                }}))
+                # print(json.dumps({'type': 'robot_rt_data', 'robot_id': robot_id, 'payload': {
+                #     'robot_id': robot_id,
+                #     'pos': {
+                #         'x': x + 0.1,
+                #         'y': y,
+                #         'yaw': yaw + 0.1
+                #     },
+                #     'battery': battery,
+                #     'imu': {
+                #         'linear_acceleration': linear_acc,
+                #         'angular_velocity': angular_vel,
+                #         'linear_speed': linear_speed,
+                #         'angular_speed': angular_speed
+                #     }
+                # }}))
 
                 # 서버에 전송
                 udp_sock.sendto(json.dumps({'type': 'robot_rt_data', 'robot_id': robot_id, 'payload': {
