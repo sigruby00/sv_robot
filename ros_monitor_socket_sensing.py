@@ -27,11 +27,22 @@ udp_host = '10.243.76.27'
 udp_port = 9005
 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 INTERFACE = "wlan0"
+# sio = socketio.Client(
+#     reconnection=True,
+#     reconnection_attempts=10,
+#     reconnection_delay=0.5,
+#     reconnection_delay_max=1
+# )
 sio = socketio.Client(
     reconnection=True,
-    reconnection_attempts=10,
-    reconnection_delay=0.5,
-    reconnection_delay_max=1
+    reconnection_attempts=0,          # 0이면 무제한 재시도
+    reconnection_delay=1,             # 초기 딜레이 1초
+    reconnection_delay_max=5,         # 최대 딜레이 5초
+    ping_interval=10,                 # 10초마다 heartbeat ping
+    ping_timeout=5,                   # ping 응답을 5초 안에 못 받으면 연결 끊김으로 간주
+    logger=True,                      # 디버깅용 로거 켜기
+    engineio_logger=True,
+    transports=['websocket'],         # polling 대신 websocket 전용 사용
 )
 
 delay_samples = []
