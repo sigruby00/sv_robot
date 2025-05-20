@@ -243,6 +243,50 @@ def ping_request(data):
     sio.emit('pong_reply')
 
 
+# def sensing_loop():
+#     gateway_list = list(AP_INFO.keys())
+#     while True:
+#         try:
+#             cur_bssid = get_current_bssid()
+#             cur_ap_id = get_ap_id_from_bssid(cur_bssid)
+#             rssi_map = get_rssi_map_from_scan_results()
+#             time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+#             sensing_data = {
+#                 "timestamp": time_now,
+#                 "data": {
+#                     "ca_id": robot_id,
+#                     "location": {
+#                         "x": pose_x,
+#                         "y": pose_y,
+#                         "t": pose_yaw
+#                     },
+#                     "imu": {
+#                         "linear_speed": speed_linear,
+#                         "angular_speed": speed_angular,
+#                     },
+#                     "connections": [
+#                         {
+#                             "gateway_id": gw_id,
+#                             "mac_address": AP_INFO[gw_id]['bssid'],
+#                             "connected": str(gw_id == cur_ap_id).lower(),
+#                             "rssi": rssi_map.get(AP_INFO[gw_id]['bssid'].lower(), -100),
+#                         }
+#                         for gw_id in gateway_list
+#                     ]
+#                 }
+#             }
+
+#             # print('robot_ss_data', json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}))
+
+#             udp_sock.sendto(json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}).encode(), (udp_host, udp_port))
+
+#             time.sleep(1.0)
+#         except Exception as e:
+#             print(f"Error in sensing loop: {e}")
+#             time.sleep(1)
+
+# skip if all connections are false
 def sensing_loop():
     gateway_list = list(AP_INFO.keys())
     while True:
@@ -251,6 +295,22 @@ def sensing_loop():
             cur_ap_id = get_ap_id_from_bssid(cur_bssid)
             rssi_map = get_rssi_map_from_scan_results()
             time_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            connections = [
+                {
+                    "gateway_id": gw_id,
+                    "mac_address": AP_INFO[gw_id]['bssid'],
+                    "connected": str(gw_id == cur_ap_id).lower(),
+                    "rssi": rssi_map.get(AP_INFO[gw_id]['bssid'].lower(), -100),
+                }
+                for gw_id in gateway_list
+            ]
+
+            # 모든 connected가 'false'이면 skip
+            if all(conn["connected"] == "false" for conn in connections):
+                print("⚠️ All connections are false — skipping emit")
+                time.sleep(1.0)
+                continue
 
             sensing_data = {
                 "timestamp": time_now,
@@ -265,19 +325,9 @@ def sensing_loop():
                         "linear_speed": speed_linear,
                         "angular_speed": speed_angular,
                     },
-                    "connections": [
-                        {
-                            "gateway_id": gw_id,
-                            "mac_address": AP_INFO[gw_id]['bssid'],
-                            "connected": str(gw_id == cur_ap_id).lower(),
-                            "rssi": rssi_map.get(AP_INFO[gw_id]['bssid'].lower(), -100),
-                        }
-                        for gw_id in gateway_list
-                    ]
+                    "connections": connections
                 }
             }
-
-            # print('robot_ss_data', json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}))
 
             udp_sock.sendto(json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}).encode(), (udp_host, udp_port))
 
