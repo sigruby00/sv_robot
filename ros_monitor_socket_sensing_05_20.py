@@ -20,12 +20,6 @@ import subprocess
 
 # Socket.IO 클라이언트 생성
 robot_id = ROBOT_ID
-
-
-# === Injected UDP Setup ===
-udp_host = '10.243.76.27'
-udp_port = 9005
-udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 INTERFACE = "wlan0"
 sio = socketio.Client(
     reconnection=True,
@@ -235,11 +229,11 @@ def sensing_loop():
                 }
             }
 
-            print('robot_ss_data', json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}))
-
-            udp_sock.sendto(json.dumps({'type': 'robot_ss_data', 'robot_id': robot_id, 'payload': sensing_data}).encode(), (udp_host, udp_port))
-
-            time.sleep(1.0)
+            if sio.connected:
+                sio.emit('robot_ss_data', sensing_data)
+            else:
+                print("⚠️ Skipped emit: Socket.IO not connected")
+            time.sleep(2.0)
         except Exception as e:
             print(f"Error in sensing loop: {e}")
             time.sleep(1)
@@ -437,38 +431,25 @@ def main():
                 speed_linear = linear_speed if linear_speed is not None else 0.0
                 speed_angular = angular_speed if angular_speed is not None else 0.0
 
-                print(json.dumps({'type': 'robot_rt_data', 'robot_id': robot_id, 'payload': {
-                    'robot_id': robot_id,
-                    'pos': {
-                        'x': x + 0.1,
-                        'y': y,
-                        'yaw': yaw + 0.1
-                    },
-                    'battery': battery,
-                    'imu': {
-                        'linear_acceleration': linear_acc,
-                        'angular_velocity': angular_vel,
-                        'linear_speed': linear_speed,
-                        'angular_speed': angular_speed
-                    }
-                }}))
-
                 # 서버에 전송
-                udp_sock.sendto(json.dumps({'type': 'robot_rt_data', 'robot_id': robot_id, 'payload': {
-                    'robot_id': robot_id,
-                    'pos': {
-                        'x': x + 0.1,
-                        'y': y,
-                        'yaw': yaw + 0.1
-                    },
-                    'battery': battery,
-                    'imu': {
-                        'linear_acceleration': linear_acc,
-                        'angular_velocity': angular_vel,
-                        'linear_speed': linear_speed,
-                        'angular_speed': angular_speed
-                    }
-                }}).encode(), (udp_host, udp_port))
+                if sio.connected:
+                    sio.emit('robot_rt_data', {
+                        'robot_id': robot_id,
+                        'pos': {
+                            'x': x + 0.1,
+                            'y': y,
+                            'yaw': yaw + 0.1
+                        },
+                        'battery': battery,
+                        'imu': {
+                            'linear_acceleration': linear_acc,
+                            'angular_velocity': angular_vel,
+                            'linear_speed': linear_speed,
+                            'angular_speed': angular_speed
+                        }
+                    })
+                else:
+                    print("⚠️ Skipped emit: Socket.IO not connected")
 
             except Exception as e:
                 print(f"Error decoding or sending data: {e}")
