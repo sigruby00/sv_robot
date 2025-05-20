@@ -158,7 +158,11 @@ def handover_method(data):
             handover_thread.start()
         elif mode == 'NeuroRAT':
             # NeuroRAT은 별도 처리, 기존 RSSI/Random off만
+            if handover_thread and handover_thread.is_alive():
+                handover_stop_event.set()
+                handover_thread.join()
             handover_mode = 'NeuroRAT'
+            handover_thread = None
             # 기존 스레드 이미 종료됨
     elif status == 'off':
         if handover_mode == mode:
