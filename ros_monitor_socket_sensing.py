@@ -71,8 +71,12 @@ def reconnect_socket_background():
     threading.Thread(target=attempt, daemon=True).start()
 
 @sio.event
+# def connect():
+#     print('Connected to server.')
 def connect():
-    print('Connected to server.')
+    print("Connected to server.")
+    sio.emit('navigation_status_request')
+    sio.emit('handover_status_request')
 
 @sio.event
 def disconnect():
