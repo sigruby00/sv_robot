@@ -93,10 +93,15 @@ def main():
 
         yaw = quaternion_to_yaw(pose['ori_z'], pose['ori_w'])
 
+        # static_tf_cmd = (
+        #     f"ros2 run tf2_ros static_transform_publisher "
+        #     f"{pose['x']} {pose['y']} 0 0 0 {yaw} map odom"
+        # )
         static_tf_cmd = (
             f"ros2 run tf2_ros static_transform_publisher "
-            f"{pose['x']} {pose['y']} 0 0 0 {yaw} map odom"
+            f"{pose['x']} {pose['y']} 0 0 0 {pose['ori_z']} {pose['ori_w']} map odom"
         )
+
         run_command(static_tf_cmd, wait=False)
     else:
         print(f"Warning: No initial pose found for robot ID {ROBOT_ID}")
